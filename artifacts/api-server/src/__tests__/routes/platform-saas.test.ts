@@ -246,4 +246,40 @@ describe("platform SaaS routes", () => {
     const res = await request(buildApp()).put("/settings/whatsapp").send({ phoneNumberId: "1" });
     expect(res.status).toBe(400);
   });
+
+  it("GET /settings/company returns the tenant profile + active subscription", async () => {
+    // The DB mock doesn't apply .where() — rows are returned in array order,
+    // so the company row must come first for the route's .limit(1) lookup.
+    S.tenantRows = [
+      { id: 2, name: "شركة ألفا", nameEn: "Alpha Co", slug: "alpha", contactEmail: "ops@alpha.com", contactPhone: "0100", status: "active", notes: null, createdAt: NOW, updatedAt: NOW },
+      { id: 1, name: "المنصة", nameEn: null, slug: "default", contactEmail: null, contactPhone: null, status: "active", notes: null, createdAt: NOW, updatedAt: NOW },
+    ];
+    sessionState = { employeeId: 5, role: "admin", employeeName: "مدير ألفا", tenantId: 2 };
+    const res = await request(buildApp()).get("/settings/company");
+    expect(res.status).toBe(200);
+    expect(res.body.tenant).toMatchObject({ id: 2, name: "شركة ألفا", slug: "alpha" });
+    expect(res.body.subscription).toMatchObject({ status: "active", plan: { nameAr: "الباقة الأساسية" } });
+    expect(res.body.whatsappConfigured).toBe(false);
+  });
+
+  it("GET /settings/company 400s for a superadmin with no tenant scope", async () => {
+    const res = await request(buildApp()).get("/settings/company");
+    expect(res.status).toBe(400);
+  });
+
+  it("PATCH /settings/company updates contact fields only", async () => {
+    sessionState = { employeeId: 5, role: "admin", employeeName: "مدير ألفا", tenantId: 2 };
+    S.updateReturning = [{ id: 2, contactEmail: "new@alpha.com", contactPhone: "0100", notes: "n" }];
+    const res = await request(buildApp())
+      .patch("/settings/company")
+      .send({ contactEmail: "new@alpha.com", contactPhone: "0100", notes: "n" });
+    expect(res.status).toBe(200);
+    expect(S.lastUpdate?.set).toEqual({ contactEmail: "new@alpha.com", contactPhone: "0100", notes: "n" });
+  });
+
+  it("PATCH /settings/company 403s for managers (admin-only write)", async () => {
+    sessionState = { employeeId: 6, role: "manager", employeeName: "مشرف", tenantId: 2 };
+    const res = await request(buildApp()).patch("/settings/company").send({ notes: "x" });
+    expect(res.status).toBe(403);
+  });
 });

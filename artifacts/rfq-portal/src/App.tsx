@@ -62,7 +62,7 @@ import AdminTenantDetailPage from "@/modules/admin/pages/tenant-detail";
 import AdminPlansPage from "@/modules/admin/pages/plans";
 
 // ── Module: Settings — إعدادات الشركة ─────────────────────────────────────
-import WhatsappSettingsPage from "@/modules/settings/pages/whatsapp";
+import SettingsPage from "@/modules/settings/pages/index";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -244,8 +244,14 @@ function Router() {
       </Route>
 
       {/* ── Module: Settings ───────────────────────────────────────────── */}
+      <Route path="/settings">
+        <ProtectedRoute component={SettingsPage} />
+      </Route>
       <Route path="/settings/whatsapp">
-        <ProtectedRoute component={WhatsappSettingsPage} />
+        {() => {
+          window.location.replace("/settings?tab=whatsapp");
+          return null;
+        }}
       </Route>
 
       <Route component={NotFound} />

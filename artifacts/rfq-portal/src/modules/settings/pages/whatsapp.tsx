@@ -1,20 +1,20 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { settingsApi } from "@/lib/platform-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { MessageSquare, Info } from "lucide-react";
+import { Info } from "lucide-react";
 
 /**
- * Per-tenant WhatsApp settings — the company admin enters their own Meta
- * (WhatsApp Business Cloud) credentials so the company's RFQs/POs and the rep
- * bot run on the company's own WhatsApp number.
+ * WhatsApp tab — the company admin enters their own Meta (WhatsApp Business
+ * Cloud) credentials so the company's RFQs/POs and the rep bot run on the
+ * company's own WhatsApp number. Rendered as a tab inside /settings (no
+ * Layout — the parent page supplies it).
  */
-export default function WhatsappSettingsPage() {
+export default function WhatsappTab() {
   const { employee } = useAuth();
   const canEdit = employee?.role === "admin" || employee?.role === "manager" || employee?.role === "superadmin";
   const queryClient = useQueryClient();
@@ -47,11 +47,7 @@ export default function WhatsappSettingsPage() {
   }, [data]);
 
   if (!canEdit) {
-    return (
-      <Layout>
-        <div className="p-6 text-center text-muted-foreground">غير مصرح — إعدادات واتساب لمدير الشركة فقط.</div>
-      </Layout>
-    );
+    return <div className="p-6 text-center text-muted-foreground">غير مصرح — إعدادات واتساب لمدير الشركة فقط.</div>;
   }
 
   const save = async () => {
@@ -75,17 +71,10 @@ export default function WhatsappSettingsPage() {
   };
 
   return (
-    <Layout>
-      <div className="p-4 md:p-6 space-y-5 max-w-2xl">
-        <div className="flex items-center gap-2">
-          <MessageSquare size={22} className="text-emerald-600" />
-          <div>
-            <h1 className="text-xl font-bold">إعدادات واتساب</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              اربط رقم واتساب للأعمال الخاص بشركتك (WhatsApp Business Cloud API) — كل الرسائل والإشعارات وبوت المندوبين ستعمل من رقم شركتك.
-            </p>
-          </div>
-        </div>
+      <div className="space-y-5 max-w-2xl">
+        <p className="text-sm text-muted-foreground">
+          اربط رقم واتساب للأعمال الخاص بشركتك (WhatsApp Business Cloud API) — كل الرسائل والإشعارات وبوت المندوبين ستعمل من رقم شركتك.
+        </p>
 
         <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-sm flex gap-2">
           <Info size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
@@ -133,6 +122,5 @@ export default function WhatsappSettingsPage() {
           </div>
         )}
       </div>
-    </Layout>
   );
 }

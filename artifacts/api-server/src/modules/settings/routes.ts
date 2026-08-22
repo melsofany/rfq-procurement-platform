@@ -1,5 +1,12 @@
 import { Router } from "express";
-import { db, tenantWhatsappSettingsTable, auditLogTable } from "@workspace/db";
+import {
+  db,
+  tenantWhatsappSettingsTable,
+  tenantsTable,
+  tenantSubscriptionsTable,
+  subscriptionPlansTable,
+  auditLogTable,
+} from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireRole } from "../../middlewares/auth";
 import { stampTenantId } from "../../middlewares/scope";
@@ -125,6 +132,128 @@ router.put(
       wabaId: row.wabaId,
       displayPhone: row.displayPhone,
       accessTokenMasked: maskSecret(row.accessToken),
+    });
+  },
+);
+
+// ─── Company profile (self-service) ────────────────────────────────────────
+router.get(
+  "/settings/company",
+  requireRole("admin", "manager", "superadmin"),
+  async (req, res): Promise<void> => {
+    const tenantId = stampTenantId(req);
+    if (!tenantId) {
+      res.status(400).json({ error: "لا يوجد شركة مرتبطة بحسابك" });
+      return;
+    }
+    const [tenant] = await db
+      .select()
+      .from(tenantsTable)
+      .where(eq(tenantsTable.id, tenantId))
+      .limit(1);
+    if (!tenant) {
+      res.status(404).json({ error: "الشركة غير موجودة" });
+      return;
+    }
+    const subs = await db
+      .select()
+      .from(tenantSubscriptionsTable)
+      .where(eq(tenantSubscriptionsTable.tenantId, tenantId));
+    const plans = await db.select().from(subscriptionPlansTable);
+    const planById = new Map(plans.map((p) => [p.id, p]));
+    const current =
+      subs.find((s) => s.status === "active") ?? subs.find((s) => s.status === "trialing") ?? null;
+    const plan = current ? planById.get(current.planId) ?? null : null;
+    const [wa] = await db
+      .select({ enabled: tenantWhatsappSettingsTable.enabled })
+      .from(tenantWhatsappSettingsTable)
+      .where(eq(tenantWhatsappSettingsTable.tenantId, tenantId))
+      .limit(1);
+    res.json({
+      tenant: {
+        id: tenant.id,
+        name: tenant.name,
+        nameEn: tenant.nameEn,
+        slug: tenant.slug,
+        contactEmail: tenant.contactEmail,
+        contactPhone: tenant.contactPhone,
+        status: tenant.status,
+        notes: tenant.notes,
+      },
+      subscription: current
+        ? {
+            id: current.id,
+            status: current.status,
+            startsAt: current.startsAt,
+            endsAt: current.endsAt,
+            plan: plan
+              ? {
+                  nameAr: plan.nameAr,
+                  nameEn: plan.nameEn,
+                  monthlyPrice: plan.monthlyPrice,
+                  currency: plan.currency,
+                  maxUsers: plan.maxUsers,
+                }
+              : null,
+          }
+        : null,
+      whatsappConfigured: Boolean(wa?.enabled),
+    });
+  },
+);
+
+router.patch(
+  "/settings/company",
+  requireRole("admin", "superadmin"),
+  async (req, res): Promise<void> => {
+    const tenantId = stampTenantId(req);
+    if (!tenantId) {
+      res.status(400).json({ error: "لا يوجد شركة مرتبطة بحسابك" });
+      return;
+    }
+    const body = req.body as Record<string, unknown>;
+    const updates: Record<string, unknown> = {};
+    // Company admin may edit only contact details — name/status/subscription
+    // stay under platform-superadmin control.
+    if (body.contactEmail !== undefined)
+      updates.contactEmail = body.contactEmail == null ? null : String(body.contactEmail);
+    if (body.contactPhone !== undefined)
+      updates.contactPhone = body.contactPhone == null ? null : String(body.contactPhone);
+    if (body.notes !== undefined) updates.notes = body.notes == null ? null : String(body.notes);
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "لا توجد حقول للتحديث" });
+      return;
+    }
+    const [tenant] = await db
+      .update(tenantsTable)
+      .set(updates)
+      .where(eq(tenantsTable.id, tenantId))
+      .returning();
+    if (!tenant) {
+      res.status(404).json({ error: "الشركة غير موجودة" });
+      return;
+    }
+    void db
+      .insert(auditLogTable)
+      .values({
+        action: "settings.company.updated",
+        entityType: "settings",
+        entityId: tenantId,
+        employeeId: req.session.employeeId ?? null,
+        description: `Company profile updated (${Object.keys(updates).join(", ")})`,
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+        tenantId,
+      })
+      .then(() => {}, () => {});
+    res.json({
+      ok: true,
+      tenant: {
+        id: tenant.id,
+        contactEmail: tenant.contactEmail,
+        contactPhone: tenant.contactPhone,
+        notes: tenant.notes,
+      },
     });
   },
 );

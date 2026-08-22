@@ -143,6 +143,33 @@ export const platformApi = {
     api<SubscriptionPlan>(`/api/platform/plans/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
 };
 
+export interface CompanySettings {
+  tenant: {
+    id: number;
+    name: string;
+    nameEn: string | null;
+    slug: string;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    status: "active" | "suspended" | "pending";
+    notes: string | null;
+  };
+  subscription: {
+    id: number;
+    status: "trialing" | "active" | "past_due" | "canceled" | "expired";
+    startsAt: string;
+    endsAt: string | null;
+    plan: {
+      nameAr: string;
+      nameEn: string | null;
+      monthlyPrice: string | number | null;
+      currency: string | null;
+      maxUsers: number | null;
+    } | null;
+  } | null;
+  whatsappConfigured: boolean;
+}
+
 export const settingsApi = {
   getWhatsapp: () => api<TenantWhatsapp>("/api/settings/whatsapp"),
   saveWhatsapp: (body: {
@@ -154,6 +181,12 @@ export const settingsApi = {
   }) =>
     api<TenantWhatsapp & { ok: boolean }>("/api/settings/whatsapp", {
       method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  getCompany: () => api<CompanySettings>("/api/settings/company"),
+  updateCompany: (body: { contactEmail?: string | null; contactPhone?: string | null; notes?: string | null }) =>
+    api<{ ok: boolean }>("/api/settings/company", {
+      method: "PATCH",
       body: JSON.stringify(body),
     }),
 };

@@ -58,9 +58,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/integrations", label: t("nav.integrations"), icon: Plug },
   ];
 
-  // Company WhatsApp settings — admin/manager of the tenant (and superadmin).
+  // Company settings — admin/manager of the tenant (and superadmin).
   const settingsNavItems = [
-    { href: "/settings/whatsapp", label: t("nav.whatsappSettings"), icon: Settings },
+    { href: "/settings", label: t("nav.companySettings"), icon: Settings },
   ];
   const visibleSettings =
     role === "admin" || role === "manager" || role === "superadmin" ? settingsNavItems : [];
