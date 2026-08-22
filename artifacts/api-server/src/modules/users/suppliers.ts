@@ -14,6 +14,7 @@ import {
 } from "@workspace/db";
 import { eq, ilike, or, and, ne, count, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../middlewares/auth";
+import { getTenantId, scopeFilter, stampTenantId } from "../../middlewares/scope";
 
 const router = Router();
 
@@ -269,7 +270,7 @@ router.post("/suppliers/bulk", requireAuth, async (req, res): Promise<void> => {
       const [existingEmail] = await db
         .select()
         .from(suppliersTable)
-        .where(ilike(suppliersTable.email, email))
+        .where(and(ilike(suppliersTable.email, email), scopeFilter(suppliersTable.tenantId, getTenantId(req))))
         .limit(1);
       if (existingEmail) {
         skipped++;
@@ -304,6 +305,7 @@ router.post("/suppliers/bulk", requireAuth, async (req, res): Promise<void> => {
           phone: phone || undefined,
           address: row.address ? String(row.address) : undefined,
           category,
+          tenantId: stampTenantId(req),
         })
         .returning();
 
@@ -372,7 +374,7 @@ router.get("/suppliers", requireAuth, async (req, res): Promise<void> => {
     // best-effort — لا نُعطّل القائمة إن فشلت
   }
 
-  const conditions = [];
+  const conditions = [scopeFilter(suppliersTable.tenantId, getTenantId(req))].filter(Boolean);
   if (category) {
     conditions.push(
       or(
@@ -419,7 +421,7 @@ router.get("/suppliers/scores", requireAuth, async (req, res): Promise<void> => 
   const suppliers = await db
     .select()
     .from(suppliersTable)
-    .where(eq(suppliersTable.isActive, true))
+    .where(and(eq(suppliersTable.isActive, true), scopeFilter(suppliersTable.tenantId, getTenantId(req))))
     .orderBy(suppliersTable.name);
 
   const scores = await Promise.all(
@@ -452,7 +454,7 @@ router.post("/suppliers", requireAuth, async (req, res): Promise<void> => {
     const [existing] = await db
       .select()
       .from(suppliersTable)
-      .where(ilike(suppliersTable.email, email.trim()))
+      .where(and(ilike(suppliersTable.email, email.trim()), scopeFilter(suppliersTable.tenantId, getTenantId(req))))
       .limit(1);
     if (existing) {
       res.status(409).json({ error: `هذا الإيميل مسجل بالفعل للمورد: ${existing.name}` });
@@ -465,7 +467,7 @@ router.post("/suppliers", requireAuth, async (req, res): Promise<void> => {
     const [existing] = await db
       .select()
       .from(suppliersTable)
-      .where(sql`replace(${suppliersTable.phone}, ' ', '') = ${cleaned}`)
+      .where(and(sql`replace(${suppliersTable.phone}, ' ', '') = ${cleaned}`, scopeFilter(suppliersTable.tenantId, getTenantId(req))))
       .limit(1);
     if (existing) {
       res.status(409).json({ error: `رقم الهاتف مسجل بالفعل للمورد: ${existing.name}` });
@@ -483,6 +485,7 @@ router.post("/suppliers", requireAuth, async (req, res): Promise<void> => {
       phone,
       address,
       category,
+      tenantId: stampTenantId(req),
     })
     .returning();
   res.status(201).json({
@@ -503,7 +506,10 @@ router.post("/suppliers", requireAuth, async (req, res): Promise<void> => {
 router.get("/suppliers/:id", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const [supplier] = await db.select().from(suppliersTable).where(eq(suppliersTable.id, id));
+  const [supplier] = await db
+    .select()
+    .from(suppliersTable)
+    .where(and(eq(suppliersTable.id, id), scopeFilter(suppliersTable.tenantId, getTenantId(req))));
   if (!supplier) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -541,7 +547,7 @@ router.patch("/suppliers/:id", requireAuth, async (req, res): Promise<void> => {
     const [existing] = await db
       .select()
       .from(suppliersTable)
-      .where(and(ilike(suppliersTable.email, emailVal), ne(suppliersTable.id, id)))
+      .where(and(ilike(suppliersTable.email, emailVal), ne(suppliersTable.id, id), scopeFilter(suppliersTable.tenantId, getTenantId(req))))
       .limit(1);
     if (existing) {
       res.status(409).json({ error: `هذا الإيميل مسجل بالفعل للمورد: ${existing.name}` });
@@ -555,7 +561,7 @@ router.patch("/suppliers/:id", requireAuth, async (req, res): Promise<void> => {
       .select()
       .from(suppliersTable)
       .where(
-        and(sql`replace(${suppliersTable.phone}, ' ', '') = ${cleaned}`, ne(suppliersTable.id, id)),
+        and(sql`replace(${suppliersTable.phone}, ' ', '') = ${cleaned}`, ne(suppliersTable.id, id), scopeFilter(suppliersTable.tenantId, getTenantId(req))),
       )
       .limit(1);
     if (existing) {
@@ -572,7 +578,7 @@ router.patch("/suppliers/:id", requireAuth, async (req, res): Promise<void> => {
     const [current] = await db
       .select({ isActive: suppliersTable.isActive })
       .from(suppliersTable)
-      .where(eq(suppliersTable.id, id))
+      .where(and(eq(suppliersTable.id, id), scopeFilter(suppliersTable.tenantId, getTenantId(req))))
       .limit(1);
     if (current && !current.isActive) {
       updates.reactivatedAt = new Date();
@@ -582,7 +588,7 @@ router.patch("/suppliers/:id", requireAuth, async (req, res): Promise<void> => {
   const [supplier] = await db
     .update(suppliersTable)
     .set(updates)
-    .where(eq(suppliersTable.id, id))
+    .where(and(eq(suppliersTable.id, id), scopeFilter(suppliersTable.tenantId, getTenantId(req))))
     .returning();
   if (!supplier) {
     res.status(404).json({ error: "Not found" });
@@ -613,7 +619,7 @@ router.delete(
     try {
       const [deleted] = await db
         .delete(suppliersTable)
-        .where(eq(suppliersTable.id, id))
+        .where(and(eq(suppliersTable.id, id), scopeFilter(suppliersTable.tenantId, getTenantId(req))))
         .returning();
       if (!deleted) {
         res.status(404).json({ error: "Not found" });

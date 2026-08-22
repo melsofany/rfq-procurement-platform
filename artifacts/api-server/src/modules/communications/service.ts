@@ -21,6 +21,7 @@ import {
 import { logger } from "../../shared/logger";
 import { generateRfqPdf } from "../rfq/rfq-pdf";
 import { generatePoPdf } from "../po/po-pdf";
+import { waChannel } from "./tenant-wa";
 
 // ─── Official WhatsApp Business (Meta) Cloud API client ──────────────────────
 // This module is built on top of the open-source "whatsapp-api-js" library
@@ -153,14 +154,6 @@ class WhatsAppApiError extends Error {
   }
 }
 
-function requireConfigured(): void {
-  if (!isWhatsAppConfigured) {
-    throw new Error(
-      "WhatsApp credentials not configured (WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_TOKEN)",
-    );
-  }
-}
-
 function normalizePhone(phone: string): string {
   // Strip invisible Unicode directional/formatting marks that paste in from WhatsApp/browsers
   // eslint-disable-next-line no-control-regex
@@ -199,15 +192,15 @@ export async function uploadWhatsAppMedia(
   filename: string,
   mimeType: string,
 ): Promise<string> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const blob = new Blob([new Uint8Array(buffer)], { type: mimeType });
   const form = new FormData();
   form.append("messaging_product", "whatsapp");
   form.append("type", mimeType);
   form.append("file", blob, filename);
 
-  const res = await Whatsapp.$$apiFetch$$(
-    `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/media`,
+  const res = await waClient.$$apiFetch$$(
+    `https://graph.facebook.com/v22.0/${waPhoneId}/media`,
     { method: "POST", body: form },
   );
   const json = (await res.json()) as { id?: string; error?: object };
@@ -268,9 +261,22 @@ function buildContactText(opts: SendRfqOpts): string {
   );
 }
 
+/** Resolve the tenant-aware WhatsApp client + phone-number-id pair. Throws
+ *  when neither tenant nor env credentials are configured (mirrors the old
+ *  requireConfigured() contract for all send paths). */
+async function wa(): Promise<{ client: WhatsAppAPI; phoneNumberId: string }> {
+  const ch = await waChannel();
+  if (!ch.configured) {
+    throw new Error(
+      "WhatsApp credentials not configured (no tenant or env credentials available)",
+    );
+  }
+  return { client: ch.client, phoneNumberId: ch.phoneNumberId };
+}
+
 async function sendTemplate(to: string, template: Template): Promise<string> {
-  requireConfigured();
-  const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, template);
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
+  const result = await waClient.sendMessage(waPhoneId, to, template);
   if ("error" in result && result.error) {
     throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
   }
@@ -455,7 +461,7 @@ function buildPoContactText(opts: SendPoOpts): string {
  * (works within 24-hour conversation window).
  */
 export async function sendPoWhatsApp(opts: SendPoOpts): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(opts.phone);
 
   // Generate PDF once — shared by template attempt and fallback
@@ -532,7 +538,7 @@ export interface SendPoCancelOpts {
 }
 
 export async function sendPoCancelWhatsApp(opts: SendPoCancelOpts): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(opts.phone);
   const toName = sanitizeWaParam(opts.contactPerson?.trim() || opts.supplierName);
   const reason = sanitizeWaParam(opts.reason?.trim() || "إلغاء أمر الشراء");
@@ -568,7 +574,7 @@ export interface SendRepresentativeWorkOrderOpts {
 export async function sendRepresentativeWorkOrderWhatsApp(
   opts: SendRepresentativeWorkOrderOpts,
 ): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(opts.phone);
   const template = new Template(
     TEMPLATE_WORK_ORDER,
@@ -595,7 +601,7 @@ export async function sendWhatsAppInteractiveConfirmation(
   poNo: string,
   action: "received" | "rejected",
 ): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(phone);
   const title = action === "received" ? "تأكيد الاستلام" : "تأكيد الرفض";
   const body = action === "received"
@@ -608,7 +614,7 @@ export async function sendWhatsAppInteractiveConfirmation(
     ),
     new Body(body),
   );
-  const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+  const result = await waClient.sendMessage(waPhoneId, to, message);
   if ("error" in result && result.error) {
     throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
   }
@@ -633,7 +639,7 @@ export async function sendRepPoDispatchWhatsApp(opts: {
   supplierPhone?: string | null;
   items: Array<{ lineItem?: string | null; description?: string | null; qty?: string | null; uom?: string | null }>;
 }): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(opts.phone);
   const lines: string[] = [];
   lines.push(`أمر شراء جديد للمندوب`);
@@ -657,7 +663,7 @@ export async function sendRepPoDispatchWhatsApp(opts: {
     new ActionButtons(new Button("rep_menu:receipt", "بدء الاستلام")),
     new Body(body),
   );
-  const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+  const result = await waClient.sendMessage(waPhoneId, to, message);
   if ("error" in result && result.error) {
     throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
   }
@@ -679,7 +685,7 @@ export async function sendRepresentativeItemReceiptWhatsApp(opts: {
   lineLabel: string; // e.g. "بند 3 - وصف البند"
   qty?: string | null;
 }): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(opts.phone);
   const qtyText = opts.qty ? ` — الكمية: ${opts.qty}` : "";
   const body = `استلام التوريدات\nأمر الشراء: ${opts.poNo}\n${opts.lineLabel}${qtyText}\nهل تم الاستلام؟`;
@@ -690,7 +696,7 @@ export async function sendRepresentativeItemReceiptWhatsApp(opts: {
     ),
     new Body(body),
   );
-  const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+  const result = await waClient.sendMessage(waPhoneId, to, message);
   if ("error" in result && result.error) {
     throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
   }
@@ -708,7 +714,7 @@ export async function sendRejectionReasonOptions(
   poItemId: number,
   reasons: readonly string[],
 ): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(phone);
   const rows = reasons.map(
     (r, i) =>
@@ -728,7 +734,7 @@ export async function sendRejectionReasonOptions(
     ),
     new Body(`تم اختيار الرفض لبند في أمر الشراء ${poNo}.\nاختر سبب الرفض:`),
   );
-  const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+  const result = await waClient.sendMessage(waPhoneId, to, message);
   if ("error" in result && result.error) {
     throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
   }
@@ -736,9 +742,9 @@ export async function sendRejectionReasonOptions(
 }
 
 export async function sendWhatsAppText(phone: string, text: string): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(phone);
-  const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, new Text(text));
+  const result = await waClient.sendMessage(waPhoneId, to, new Text(text));
   if ("error" in result && result.error) {
     throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
   }
@@ -747,9 +753,10 @@ export async function sendWhatsAppText(phone: string, text: string): Promise<str
 }
 
 export async function markWhatsAppRead(messageId: string): Promise<void> {
-  if (!isWhatsAppConfigured) return;
+  const ch = await waChannel();
+  if (!ch.configured) return;
   try {
-    await Whatsapp.markAsRead(PHONE_NUMBER_ID, messageId);
+    await ch.client.markAsRead(ch.phoneNumberId, messageId);
   } catch {
     // non-critical
   }
@@ -766,7 +773,7 @@ export async function sendRepMainMenu(phone: string, counts?: {
   receipt: number;
   delivery: number;
 }): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(phone);
   const r = counts?.receipt ?? 0;
   const d = counts?.delivery ?? 0;
@@ -778,7 +785,7 @@ export async function sendRepMainMenu(phone: string, counts?: {
     ),
     new Body(body),
   );
-  const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+  const result = await waClient.sendMessage(waPhoneId, to, message);
   if ("error" in result && result.error) {
     throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
   }
@@ -795,7 +802,7 @@ export async function sendRepPoPicker(
   kind: "receipt" | "delivery",
   pos: Array<{ id: number; no: string; label: string; pendingItems: number }>,
 ): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(phone);
   const emptyMsg = kind === "receipt"
     ? "لا توجد أوامر شراء بانتظار الاستلام حالياً."
@@ -815,7 +822,7 @@ export async function sendRepPoPicker(
             new ActionButtons(p0, new Button(`rep_po:${kind}:${pos[1].id}`, pos[1].no.slice(0, 20)), back),
             new Body(`${title}:\nاختر الأمر.`),
           );
-    const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+    const result = await waClient.sendMessage(waPhoneId, to, message);
     if ("error" in result && result.error) throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
     return result.messages?.[0]?.id ?? null;
   }
@@ -829,7 +836,7 @@ export async function sendRepPoPicker(
     new ActionList("اختر أمر شغل", new ListSection(title, first, ...rest)),
     new Body(`اختر الأمر الذي تريد العمل عليه:`),
   );
-  const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+  const result = await waClient.sendMessage(waPhoneId, to, message);
   if ("error" in result && result.error) {
     throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
   }
@@ -846,7 +853,7 @@ export async function sendRepItemPicker(
   poId: number,
   items: Array<{ id: number; label: string; qty: string | null; statusHint: string }>,
 ): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(phone);
   if (items.length === 0) {
     return sendWhatsAppText(phone, "لا توجد بنود بانتظار الإجراء في هذا الأمر.");
@@ -862,7 +869,7 @@ export async function sendRepItemPicker(
             new ActionButtons(i0, new Button(`rep_item:${kind}:${poId}:${items[1].id}`, items[1].label.slice(0, 20)), back),
             new Body(`${title}:\nاختر البند.`),
           );
-    const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+    const result = await waClient.sendMessage(waPhoneId, to, message);
     if ("error" in result && result.error) throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
     return result.messages?.[0]?.id ?? null;
   }
@@ -880,7 +887,7 @@ export async function sendRepItemPicker(
     new ActionList("اختر بند", new ListSection(title, first, ...rest)),
     new Body("اختر البند الذي تريد تسجيل إجراء له:"),
   );
-  const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+  const result = await waClient.sendMessage(waPhoneId, to, message);
   if ("error" in result && result.error) {
     throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
   }
@@ -909,7 +916,7 @@ export async function sendRepItemAction(
     supplierPhone?: string | null;
   },
 ): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(phone);
   const qtyText = opts.qty ? ` — الكمية: ${opts.qty}` : "";
   const back = new Button(`rep_back:item:${opts.kind}:${opts.poId}`, "رجوع");
@@ -928,7 +935,7 @@ export async function sendRepItemAction(
       ),
       new Body(body),
     );
-    const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+    const result = await waClient.sendMessage(waPhoneId, to, message);
     if ("error" in result && result.error) {
       throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
     }
@@ -944,7 +951,7 @@ export async function sendRepItemAction(
     ),
     new Body(body),
   );
-  const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+  const result = await waClient.sendMessage(waPhoneId, to, message);
   if ("error" in result && result.error) {
     throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
   }
@@ -967,7 +974,7 @@ export async function sendRepConfirm(
     action: "received" | "delivered";
   },
 ): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(phone);
   const body =
     opts.kind === "receipt"
@@ -988,7 +995,7 @@ export async function sendRepConfirm(
     ),
     new Body(body),
   );
-  const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+  const result = await waClient.sendMessage(waPhoneId, to, message);
   if ("error" in result && result.error) {
     throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
   }
@@ -1014,7 +1021,7 @@ export async function sendDeliveryRejectionReasonOptions(
   customerPoItemId: number,
   reasons: readonly string[] = CUSTOMER_REJECTION_REASONS,
 ): Promise<string | null> {
-  requireConfigured();
+  const { client: waClient, phoneNumberId: waPhoneId } = await wa();
   const to = normalizePhone(phone);
   const rows = reasons.map(
     (r, i) =>
@@ -1032,7 +1039,7 @@ export async function sendDeliveryRejectionReasonOptions(
     ),
     new Body(`تم اختيار رفض العميل لبند في أمر شراء العميل ${customerPoNo}.\nاختر سبب الرفض:`),
   );
-  const result = await Whatsapp.sendMessage(PHONE_NUMBER_ID, to, message);
+  const result = await waClient.sendMessage(waPhoneId, to, message);
   if ("error" in result && result.error) {
     throw new WhatsAppApiError(`WhatsApp API error: ${JSON.stringify(result.error)}`);
   }

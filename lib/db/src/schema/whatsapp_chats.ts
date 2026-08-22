@@ -1,7 +1,9 @@
-import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { tenantsTable } from "./saas";
 import { suppliersTable } from "./suppliers";
 
 export const whatsappChatsTable = pgTable("whatsapp_chats", {
+  tenantId: integer("tenant_id").references(() => tenantsTable.id),
   id: serial("id").primaryKey(),
   waMessageId: text("wa_message_id").unique(),
   direction: text("direction").notNull(), // "inbound" | "outbound"

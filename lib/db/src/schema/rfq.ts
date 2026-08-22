@@ -1,10 +1,12 @@
-import { pgTable, text, serial, timestamp, integer, numeric } from "drizzle-orm/pg-core";
+import { integer, numeric, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { tenantsTable } from "./saas";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { employeesTable } from "./employees";
 import { customerRfqItemsTable } from "./customer_rfqs";
 
 export const rfqTable = pgTable("rfq", {
+  tenantId: integer("tenant_id").references(() => tenantsTable.id),
   id: serial("id").primaryKey(),
   internalRfqNo: text("internal_rfq_no").notNull().unique(),
   customerRfqNo: text("customer_rfq_no").notNull(),

@@ -44,6 +44,14 @@ vi.mock("../../modules/communications/service", () => ({
   formatQty: (q: any) => (q == null ? null : String(q).replace(/0+$/, "").replace(/\.$/, "") || "0"),
 }));
 
+
+vi.mock("../../modules/communications/tenant-wa", () => ({
+  isWhatsAppAvailable: vi.fn(() => Promise.resolve(_whatsappConfigured)),
+  resolveTenantByPhoneNumberId: vi.fn(() => Promise.resolve(null)),
+  waChannel: vi.fn(() => Promise.resolve({ client: null, phoneNumberId: "test", configured: _whatsappConfigured, source: "env" as const })),
+  resolveWhatsAppConfig: vi.fn(() => Promise.resolve({ tenantId: null, phoneNumberId: "", token: "", wabaId: null, source: "env" as const, configured: _whatsappConfigured })),
+  invalidateTenantConfig: vi.fn(),
+}));
 vi.mock("../../modules/po/po-pdf", () => ({
   generatePoPdf: vi.fn().mockResolvedValue(Buffer.from("")),
 }));

@@ -7,6 +7,103 @@ export async function initDb(): Promise<void> {
   const client = await pool.connect();
   logger.info("initDb: connected successfully");
   try {
+    // ── SaaS platform tables (created FIRST: employees/ownership tables ALTER
+    //    a tenant_id FK to tenants, so tenants must exist) ──────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tenants (
+        id             SERIAL PRIMARY KEY,
+        name           TEXT NOT NULL,
+        slug           TEXT NOT NULL UNIQUE,
+        contact_email  TEXT,
+        contact_phone  TEXT,
+        status         TEXT NOT NULL DEFAULT 'active',
+        notes          TEXT,
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS subscription_plans (
+        id            SERIAL PRIMARY KEY,
+        code          TEXT NOT NULL UNIQUE,
+        name_ar       TEXT NOT NULL,
+        name_en       TEXT,
+        description   TEXT,
+        monthly_price NUMERIC(15,2) NOT NULL DEFAULT 0,
+        currency      TEXT NOT NULL DEFAULT 'EGP',
+        max_users     INTEGER,
+        features      JSONB,
+        is_active     BOOLEAN NOT NULL DEFAULT true,
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tenant_subscriptions (
+        id              SERIAL PRIMARY KEY,
+        tenant_id       INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        plan_id         INTEGER NOT NULL REFERENCES subscription_plans(id),
+        status          TEXT NOT NULL DEFAULT 'active',
+        starts_at       TEXT NOT NULL,
+        ends_at         TEXT,
+        notes           TEXT,
+        created_by_name TEXT,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS tenant_whatsapp_settings (
+        id                   SERIAL PRIMARY KEY,
+        tenant_id            INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        phone_number_id      TEXT,
+        access_token         TEXT,
+        waba_id              TEXT,
+        webhook_verify_token TEXT,
+        display_phone        TEXT,
+        enabled              BOOLEAN NOT NULL DEFAULT false,
+        updated_by_name      TEXT,
+        created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS tenant_whatsapp_settings_tenant_id_uniq
+        ON tenant_whatsapp_settings (tenant_id);
+    `);
+    // Ownership columns for tenant isolation (NULL → backfilled to the
+    // platform default tenant below, so pre-SaaS rows stay visible).
+    await client.query(`
+      ALTER TABLE employees          ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+      ALTER TABLE suppliers          ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+      ALTER TABLE customers          ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+      ALTER TABLE representatives    ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+      ALTER TABLE rfq                ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+      ALTER TABLE customer_rfqs      ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+      ALTER TABLE customer_pos       ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+      ALTER TABLE purchase_orders    ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+      ALTER TABLE operating_expenses ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+      ALTER TABLE whatsapp_chats     ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+      ALTER TABLE audit_log          ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+      ALTER TABLE erp_integrations   ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+    `);
+    // Idempotent platform seed: one default tenant + starter plan; all NULL
+    // tenant_id rows are backfilled so pre-SaaS data remains reachable.
+    await client.query(
+      `INSERT INTO tenants (name, slug) VALUES ($1, $2) ON CONFLICT (slug) DO NOTHING`,
+      ["المنصة", "default"],
+    );
+    const tenantRow = await client.query(`SELECT id FROM tenants WHERE slug = 'default'`);
+    const defaultTenantId = tenantRow.rows[0]?.id as number | undefined;
+    await client.query(
+      `INSERT INTO subscription_plans (code, name_ar, name_en)
+       VALUES ('starter', 'الباقة الأساسية', 'Starter')
+       ON CONFLICT (code) DO NOTHING`,
+    );
+    if (defaultTenantId) {
+      const ownershipTables = [
+        "employees", "suppliers", "customers", "representatives", "rfq",
+        "customer_rfqs", "customer_pos", "purchase_orders", "operating_expenses",
+        "whatsapp_chats", "audit_log", "erp_integrations",
+      ];
+      for (const tbl of ownershipTables) {
+        await client.query(`UPDATE "${tbl}" SET tenant_id = $1 WHERE tenant_id IS NULL`, [defaultTenantId]);
+      }
+      logger.info({ defaultTenantId }, "initDb: default tenant backfilled");
+    }
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS "user_sessions" (
         "sid" varchar NOT NULL COLLATE "default",
@@ -854,19 +951,19 @@ export async function initDb(): Promise<void> {
       const seedAccounts = [
         {
           name: "Admin",
-          email: "admin@cortoba-supplies.com",
+          email: "admin@rfq-platform.local",
           pass: process.env.SEED_ADMIN_PASS,
           role: "admin",
         },
         {
           name: "Khalid Al-Manager",
-          email: "khalid@cortoba-supplies.com",
+          email: "khalid@rfq-platform.local",
           pass: process.env.SEED_MANAGER_PASS,
           role: "manager",
         },
         {
           name: "Sara",
-          email: "sara@cortoba-supplies.com",
+          email: "sara@rfq-platform.local",
           pass: process.env.SEED_STAFF_PASS,
           role: "purchasing",
         },

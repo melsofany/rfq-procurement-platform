@@ -1,9 +1,11 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { tenantsTable } from "./saas";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { employeesTable } from "./employees";
 
 export const auditLogTable = pgTable("audit_log", {
+  tenantId: integer("tenant_id").references(() => tenantsTable.id),
   id: serial("id").primaryKey(),
   action: text("action").notNull(),
   entityType: text("entity_type"),

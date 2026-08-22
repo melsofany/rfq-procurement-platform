@@ -27,6 +27,7 @@ import {
 } from "@workspace/db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../middlewares/auth";
+import { getTenantId, scopeFilter, stampTenantId } from "../../middlewares/scope";
 import type { Request } from "express";
 import { postJournalEntry } from "../accounts/posting";
 import { expenseAccountFor, cashAccountFor } from "../accounts/integration";
@@ -74,7 +75,7 @@ router.get("/expenses", requireAuth, async (req, res): Promise<void> => {
   const from = (req.query.from as string) || undefined;
   const to = (req.query.to as string) || undefined;
 
-  const conditions = [];
+  const conditions = [scopeFilter(operatingExpensesTable.tenantId, getTenantId(req))].filter(Boolean);
   if (category) conditions.push(eq(operatingExpensesTable.category, category));
   if (from) conditions.push(gte(operatingExpensesTable.expenseDate, from));
   if (to) conditions.push(lte(operatingExpensesTable.expenseDate, to));
@@ -104,7 +105,7 @@ router.get("/expenses/summary", requireAuth, async (req, res): Promise<void> => 
   const from = (req.query.from as string) || undefined;
   const to = (req.query.to as string) || undefined;
 
-  const conditions = [];
+  const conditions = [scopeFilter(operatingExpensesTable.tenantId, getTenantId(req))].filter(Boolean);
   if (from) conditions.push(gte(operatingExpensesTable.expenseDate, from));
   if (to) conditions.push(lte(operatingExpensesTable.expenseDate, to));
 
@@ -144,7 +145,7 @@ router.get("/expenses/:id", requireAuth, async (req, res): Promise<void> => {
   const [row] = await db
     .select()
     .from(operatingExpensesTable)
-    .where(eq(operatingExpensesTable.id, id));
+    .where(and(eq(operatingExpensesTable.id, id), scopeFilter(operatingExpensesTable.tenantId, getTenantId(req))));
   if (!row) {
     res.status(404).json({ error: "المصروف غير موجود" });
     return;
@@ -243,6 +244,7 @@ router.post("/expenses", requireAuth, async (req, res): Promise<void> => {
       notes: v.values.notes,
       employeeId: session.employeeId ?? null,
       employeeName: session.employeeName ?? null,
+      tenantId: stampTenantId(req),
     })
     .returning({ id: operatingExpensesTable.id });
 
@@ -291,7 +293,7 @@ router.patch("/expenses/:id", requireAuth, async (req, res): Promise<void> => {
   const [existing] = await db
     .select()
     .from(operatingExpensesTable)
-    .where(eq(operatingExpensesTable.id, id));
+    .where(and(eq(operatingExpensesTable.id, id), scopeFilter(operatingExpensesTable.tenantId, getTenantId(req))));
   if (!existing) {
     res.status(404).json({ error: "المصروف غير موجود" });
     return;
@@ -304,7 +306,7 @@ router.patch("/expenses/:id", requireAuth, async (req, res): Promise<void> => {
   await db
     .update(operatingExpensesTable)
     .set(v.values)
-    .where(eq(operatingExpensesTable.id, id));
+    .where(and(eq(operatingExpensesTable.id, id), scopeFilter(operatingExpensesTable.tenantId, getTenantId(req))));
 
   await db.insert(auditLogTable).values({
     action: "expense.update",
@@ -328,12 +330,14 @@ router.delete("/expenses/:id", requireRole("admin", "manager"), async (req, res)
   const [existing] = await db
     .select()
     .from(operatingExpensesTable)
-    .where(eq(operatingExpensesTable.id, id));
+    .where(and(eq(operatingExpensesTable.id, id), scopeFilter(operatingExpensesTable.tenantId, getTenantId(req))));
   if (!existing) {
     res.status(404).json({ error: "المصروف غير موجود" });
     return;
   }
-  await db.delete(operatingExpensesTable).where(eq(operatingExpensesTable.id, id));
+  await db
+    .delete(operatingExpensesTable)
+    .where(and(eq(operatingExpensesTable.id, id), scopeFilter(operatingExpensesTable.tenantId, getTenantId(req))));
   await db.insert(auditLogTable).values({
     action: "expense.delete",
     entityType: "operating_expense",

@@ -15,12 +15,14 @@ import {
   representativesTable,
   WORK_ORDER_KIND,
 } from "@workspace/db";
+import { isWhatsAppAvailable, resolveTenantByPhoneNumberId, waChannel } from "./tenant-wa";
+import { getTenantId, scopeFilter } from "../../middlewares/scope";
+import { tenantAls, currentTenant } from "../../middlewares/tenant-context";
 import { eq, desc, sql, and, inArray, ne, isNotNull, ilike } from "drizzle-orm";
 import {
   Whatsapp,
   PHONE_NUMBER_ID,
   WEBHOOK_VERIFY_TOKEN,
-  isWhatsAppConfigured,
   sendWhatsAppText,
   sendWhatsAppInteractiveConfirmation,
   sendRepresentativeItemReceiptWhatsApp,
@@ -271,12 +273,18 @@ async function dispatchWebhookPayload(body: MetaWebhookBody): Promise<void> {
   const change = body.entry?.[0]?.changes?.[0];
   if (!change?.value) return;
 
-  const phoneID = change.value.metadata?.phone_number_id ?? PHONE_NUMBER_ID;
+  const value = change.value;
+  const phoneID = value.metadata?.phone_number_id ?? PHONE_NUMBER_ID;
 
+  // Resolve which tenant owns this phone_number_id (per-company WhatsApp)
+  // and run the inbound flow inside that tenant scope: chat rows get stamped
+  // with the tenant and any replies route through the tenant's credentials.
+  const inboundTenantId = await resolveTenantByPhoneNumberId(phoneID);
+  return tenantAls.run({ tenantId: inboundTenantId }, async () => {
   if (change.field === "messages") {
-    if (change.value.messages?.length) {
-      const message = change.value.messages[0] as ServerMessage;
-      const contact = change.value.contacts?.[0];
+    if (value.messages?.length) {
+      const message = value.messages[0] as ServerMessage;
+      const contact = value.contacts?.[0];
       const from = contact?.wa_id ?? message.from;
       const name = contact?.profile?.name;
 
@@ -290,8 +298,8 @@ async function dispatchWebhookPayload(body: MetaWebhookBody): Promise<void> {
       } else {
         await handleInboundMessage(phoneID, from, message, name, async () => {});
       }
-    } else if (change.value.statuses?.length) {
-      const s = change.value.statuses[0];
+    } else if (value.statuses?.length) {
+      const s = value.statuses[0];
       const status = s.status ?? "";
       const id = s.id ?? "";
       if (status === "failed") {
@@ -320,6 +328,7 @@ async function dispatchWebhookPayload(body: MetaWebhookBody): Promise<void> {
       }
     }
   }
+  });
 }
 
 interface ServerMessage {
@@ -1540,7 +1549,7 @@ async function handleInboundMessage(
     .limit(1);
   if (existing.length > 0) return;
 
-  await db.insert(whatsappChatsTable).values({
+  await db.insert(whatsappChatsTable).values({ tenantId: currentTenant(),
     waMessageId,
     direction: "inbound",
     phone,
@@ -1648,7 +1657,7 @@ async function handleReactionWebhook(from: string, msg: ServerMessage): Promise<
 // ─── GET /api/whatsapp/media/:mediaId ────────────────────────────────────
 router.get("/whatsapp/media/:mediaId", requireAuth, async (req, res): Promise<void> => {
   const mediaId = req.params.mediaId as string;
-  if (!isWhatsAppConfigured) {
+  if (!(await isWhatsAppAvailable())) {
     res.status(503).json({ error: "WhatsApp not configured" });
     return;
   }
@@ -1701,7 +1710,7 @@ router.get("/whatsapp/media/:mediaId", requireAuth, async (req, res): Promise<vo
 // ─── GET /api/whatsapp/profile-picture/:phone ─────────────────────────────
 router.get("/whatsapp/profile-picture/:phone", requireAuth, async (req, res): Promise<void> => {
   const phone = req.params.phone as string;
-  if (!isWhatsAppConfigured) {
+  if (!(await isWhatsAppAvailable())) {
     res.status(404).json({ error: "Not configured" });
     return;
   }
@@ -1746,6 +1755,7 @@ router.get("/whatsapp/chats", requireAuth, async (req, res): Promise<void> => {
     })
     .from(whatsappChatsTable)
     .leftJoin(suppliersTable, eq(whatsappChatsTable.supplierId, suppliersTable.id))
+    .where(scopeFilter(whatsappChatsTable.tenantId, getTenantId(req)))
     .groupBy(whatsappChatsTable.phone, whatsappChatsTable.supplierId, suppliersTable.name)
     .orderBy(sql`MAX(${whatsappChatsTable.createdAt}) DESC`);
   res.json(rows);
@@ -1757,13 +1767,13 @@ router.get("/whatsapp/chats/:phone", requireAuth, async (req, res): Promise<void
   const messages = await db
     .select()
     .from(whatsappChatsTable)
-    .where(eq(whatsappChatsTable.phone, phone))
+    .where(and(eq(whatsappChatsTable.phone, phone), scopeFilter(whatsappChatsTable.tenantId, getTenantId(req))))
     .orderBy(desc(whatsappChatsTable.createdAt))
     .limit(200);
   await db
     .update(whatsappChatsTable)
     .set({ isRead: true })
-    .where(eq(whatsappChatsTable.phone, phone));
+    .where(and(eq(whatsappChatsTable.phone, phone), scopeFilter(whatsappChatsTable.tenantId, getTenantId(req))));
 
   // Attach reactions to each message
   const msgIds = messages.map((m) => m.waMessageId).filter(Boolean) as string[];
@@ -1798,7 +1808,7 @@ router.post("/whatsapp/react", requireAuth, async (req, res): Promise<void> => {
     res.status(400).json({ error: "waMessageId and toPhone are required" });
     return;
   }
-  if (!isWhatsAppConfigured) {
+  if (!(await isWhatsAppAvailable())) {
     res.status(503).json({ error: "WhatsApp not configured" });
     return;
   }
@@ -1866,7 +1876,7 @@ router.post("/whatsapp/send", requireAuth, async (req, res): Promise<void> => {
   const normalized = normalizePhone(phone);
   let outboundWaId: string | null = null;
   try {
-    if (replyToWaMessageId && isWhatsAppConfigured) {
+    if (replyToWaMessageId && (await isWhatsAppAvailable())) {
       // Send with reply context using Meta API directly
       const apiBody = JSON.stringify({
         messaging_product: "whatsapp",
@@ -1897,7 +1907,7 @@ router.post("/whatsapp/send", requireAuth, async (req, res): Promise<void> => {
     res.status(400).json({ error: userMessage, detail: errMsg });
     return;
   }
-  await db.insert(whatsappChatsTable).values({
+  await db.insert(whatsappChatsTable).values({ tenantId: currentTenant(),
     waMessageId: outboundWaId,
     direction: "outbound",
     phone: normalized,
@@ -1916,7 +1926,7 @@ router.post("/whatsapp/forward", requireAuth, async (req, res): Promise<void> =>
     res.status(400).json({ error: "messageId and toPhone are required" });
     return;
   }
-  if (!isWhatsAppConfigured) {
+  if (!(await isWhatsAppAvailable())) {
     res.status(503).json({ error: "WhatsApp not configured" });
     return;
   }
@@ -2024,7 +2034,7 @@ router.post("/whatsapp/forward", requireAuth, async (req, res): Promise<void> =>
     res.status(500).json({ error: "فشل إعادة التوجيه" });
     return;
   }
-  await db.insert(whatsappChatsTable).values({
+  await db.insert(whatsappChatsTable).values({ tenantId: currentTenant(),
     waMessageId: outboundWaId,
     direction: "outbound",
     phone: normalizedTo,
@@ -2051,7 +2061,7 @@ router.post(
       res.status(400).json({ error: "phone and file are required" });
       return;
     }
-    if (!isWhatsAppConfigured) {
+    if (!(await isWhatsAppAvailable())) {
       res.status(500).json({ error: "WhatsApp not configured" });
       return;
     }
@@ -2072,8 +2082,7 @@ router.post(
         Video,
         Audio,
         Document: WADocument,
-      } = await import("whatsapp-api-js/messages");
-      const message =
+      } = await import("whatsapp-api-js/messages");      const message =
         mediaType === "image"
           ? new Image(mediaId, true)
           : mediaType === "video"
@@ -2097,7 +2106,7 @@ router.post(
             : mediaType === "audio"
               ? `[صوت: ${fileFilename}]`
               : `[مستند: ${fileFilename}]`;
-      await db.insert(whatsappChatsTable).values({
+      await db.insert(whatsappChatsTable).values({ tenantId: currentTenant(),
         waMessageId: outboundWaId,
         direction: "outbound",
         phone: normalized,
@@ -2166,10 +2175,11 @@ router.delete("/whatsapp/messages/:id", requireAuth, async (req, res): Promise<v
   }
 
   let waDeletedOnPlatform = false;
-  if (isWhatsAppConfigured && msg.waMessageId && msg.direction === "outbound") {
+  const wch = await waChannel();
+  if (wch.configured && msg.waMessageId && msg.direction === "outbound") {
     try {
       const waDelRes = await Whatsapp.$$apiFetch$$(
-        `https://graph.facebook.com/${WA_API_VERSION}/${WA_PHONE_ID}/messages/${msg.waMessageId}`,
+        `https://graph.facebook.com/v22.0/${wch.phoneNumberId}/messages/${msg.waMessageId}`,
         { method: "DELETE" },
       );
       const waDelData = (await waDelRes.json()) as {
@@ -2193,7 +2203,7 @@ router.delete("/whatsapp/messages/:id", requireAuth, async (req, res): Promise<v
 // ─── GET /api/whatsapp/templates (Meta Business API templates) ────────────
 router.get("/whatsapp/templates", requireAuth, async (req, res): Promise<void> => {
   const WABA_ID = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
-  if (!isWhatsAppConfigured) {
+  if (!(await isWhatsAppAvailable())) {
     res.status(503).json({ error: "WhatsApp not configured" });
     return;
   }
@@ -2232,7 +2242,7 @@ router.post("/whatsapp/send-template", requireAuth, async (req, res): Promise<vo
     res.status(400).json({ error: "phone and templateName required" });
     return;
   }
-  if (!isWhatsAppConfigured) {
+  if (!(await isWhatsAppAvailable())) {
     res.status(503).json({ error: "WhatsApp not configured" });
     return;
   }
@@ -2263,7 +2273,7 @@ router.post("/whatsapp/send-template", requireAuth, async (req, res): Promise<vo
       return;
     }
     const waId = data.messages?.[0]?.id ?? null;
-    await db.insert(whatsappChatsTable).values({
+    await db.insert(whatsappChatsTable).values({ tenantId: currentTenant(),
       waMessageId: waId,
       direction: "outbound",
       phone: normalized,
@@ -2325,7 +2335,7 @@ router.post("/whatsapp/broadcast", requireAuth, async (req, res): Promise<void> 
     res.status(400).json({ error: "phones and message are required" });
     return;
   }
-  if (!isWhatsAppConfigured) {
+  if (!(await isWhatsAppAvailable())) {
     res.status(503).json({ error: "WhatsApp not configured" });
     return;
   }
@@ -2343,7 +2353,7 @@ router.post("/whatsapp/broadcast", requireAuth, async (req, res): Promise<void> 
     try {
       const waId = await sendWhatsAppText(phone, message);
       const normalized = normalizePhone(phone);
-      await db.insert(whatsappChatsTable).values({
+      await db.insert(whatsappChatsTable).values({ tenantId: currentTenant(),
         waMessageId: waId,
         direction: "outbound",
         phone: normalized,
@@ -2376,7 +2386,7 @@ router.get("/whatsapp/diagnose", requireAuth, async (req, res): Promise<void> =>
     process.env.WHATSAPP_TEMPLATE_UTILITY || "rfq_utility_ar",
   ];
 
-  if (!isWhatsAppConfigured) {
+  if (!(await isWhatsAppAvailable())) {
     res.json({ configured: false, error: "Missing WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_TOKEN" });
     return;
   }

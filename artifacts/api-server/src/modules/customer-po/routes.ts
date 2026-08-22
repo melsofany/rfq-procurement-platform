@@ -11,6 +11,7 @@ import {
 } from "@workspace/db";
 import { eq, count, inArray, desc, sql, and, isNotNull } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../middlewares/auth";
+import { getTenantId, scopeFilter, stampTenantId } from "../../middlewares/scope";
 
 const router = Router();
 
@@ -433,6 +434,7 @@ router.get("/customer-po", requireAuth, async (req, res): Promise<void> => {
   const rows = await db
     .select({ po: customerPosTable })
     .from(customerPosTable)
+    .where(scopeFilter(customerPosTable.tenantId, getTenantId(req)))
     .orderBy(desc(customerPosTable.createdAt));
 
   let filtered = rows;
@@ -499,6 +501,7 @@ router.get("/customer-po/customer-rfqs", requireAuth, async (_req, res): Promise
       status: customerRfqsTable.status,
     })
     .from(customerRfqsTable)
+    .where(scopeFilter(customerRfqsTable.tenantId, getTenantId(_req)))
     .orderBy(desc(customerRfqsTable.createdAt));
   res.json({ rfqs: rows });
 });
@@ -566,6 +569,7 @@ router.post("/customer-po", requireAuth, async (req, res): Promise<void> => {
       employeeName,
       notes: notes?.trim() || null,
       status: "draft",
+      tenantId: stampTenantId(req),
     })
     .returning();
 
@@ -609,7 +613,10 @@ router.post("/customer-po", requireAuth, async (req, res): Promise<void> => {
 router.get("/customer-po/:id", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const [po] = await db.select().from(customerPosTable).where(eq(customerPosTable.id, id));
+  const [po] = await db
+    .select()
+    .from(customerPosTable)
+    .where(and(eq(customerPosTable.id, id), scopeFilter(customerPosTable.tenantId, getTenantId(req))));
   if (!po) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -630,7 +637,10 @@ router.get("/customer-po/:id", requireAuth, async (req, res): Promise<void> => {
 router.patch("/customer-po/:id", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const [existing] = await db.select().from(customerPosTable).where(eq(customerPosTable.id, id));
+  const [existing] = await db
+    .select()
+    .from(customerPosTable)
+    .where(and(eq(customerPosTable.id, id), scopeFilter(customerPosTable.tenantId, getTenantId(req))));
   if (!existing) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -675,7 +685,10 @@ router.patch("/customer-po/:id", requireAuth, async (req, res): Promise<void> =>
   else if (status !== undefined) updates.status = status;
 
   if (Object.keys(updates).length > 0) {
-    await db.update(customerPosTable).set(updates).where(eq(customerPosTable.id, id));
+    await db
+      .update(customerPosTable)
+      .set(updates)
+      .where(and(eq(customerPosTable.id, id), scopeFilter(customerPosTable.tenantId, getTenantId(req))));
   }
 
   if (items !== undefined) {
@@ -745,7 +758,9 @@ router.delete("/customer-po/:id", requireAuth, async (req, res): Promise<void> =
     res.status(400).json({ error: "لا يمكن حذف أمر شراء العميل بعد إرساله" });
     return;
   }
-  await db.delete(customerPosTable).where(eq(customerPosTable.id, id));
+  await db
+    .delete(customerPosTable)
+    .where(and(eq(customerPosTable.id, id), scopeFilter(customerPosTable.tenantId, getTenantId(req))));
   await db.insert(auditLogTable).values({
     action: "customer_po.deleted",
     entityType: "customer_po",

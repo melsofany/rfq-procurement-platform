@@ -1,8 +1,10 @@
-import { pgTable, text, serial, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { tenantsTable } from "./saas";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const erpIntegrationsTable = pgTable("erp_integrations", {
+  tenantId: integer("tenant_id").references(() => tenantsTable.id),
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   type: text("type").notNull(), // odoo | sap-b1 | sap-s4hana | oracle | google-sheets

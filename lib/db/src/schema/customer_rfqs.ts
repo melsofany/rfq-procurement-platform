@@ -1,4 +1,5 @@
-import { pgTable, text, serial, timestamp, integer, numeric, boolean } from "drizzle-orm/pg-core";
+import { boolean, integer, numeric, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { tenantsTable } from "./saas";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { customersTable } from "./customers";
@@ -6,6 +7,7 @@ import { employeesTable } from "./employees";
 
 // طلب تسعير العميل — Customer Request for Quotation
 export const customerRfqsTable = pgTable("customer_rfqs", {
+  tenantId: integer("tenant_id").references(() => tenantsTable.id),
   id: serial("id").primaryKey(),
   internalNo: text("internal_no").notNull().unique(),
   customerId: integer("customer_id").references(() => customersTable.id),

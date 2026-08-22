@@ -15,6 +15,7 @@ import {
 } from "@workspace/db";
 import { eq, ilike, count, inArray, desc, asc, and, isNull, or, isNotNull } from "drizzle-orm";
 import { requireAuth } from "../../middlewares/auth";
+import { getTenantId, scopeFilter, stampTenantId } from "../../middlewares/scope";
 
 const router = Router();
 
@@ -465,6 +466,7 @@ router.get("/customer-rfq", requireAuth, async (req, res): Promise<void> => {
   const rows = await db
     .select({ rfq: customerRfqsTable })
     .from(customerRfqsTable)
+    .where(scopeFilter(customerRfqsTable.tenantId, getTenantId(req)))
     .orderBy(desc(customerRfqsTable.createdAt));
 
   let filtered = rows;
@@ -1012,7 +1014,7 @@ router.post("/customer-rfq", requireAuth, async (req, res): Promise<void> => {
     const [match] = await db
       .select({ id: customersTable.id })
       .from(customersTable)
-      .where(ilike(customersTable.name, customerName.trim()))
+      .where(and(ilike(customersTable.name, customerName.trim()), scopeFilter(customersTable.tenantId, getTenantId(req))))
       .limit(1);
     if (match) resolvedCustomerId = match.id;
   }
@@ -1051,6 +1053,7 @@ router.post("/customer-rfq", requireAuth, async (req, res): Promise<void> => {
       employeeName,
       status: "draft",
       notes: notes?.trim() || null,
+      tenantId: stampTenantId(req),
     })
     .returning();
 
@@ -1096,7 +1099,7 @@ router.get("/customer-rfq/:id", requireAuth, async (req, res): Promise<void> => 
   const [row] = await db
     .select({ rfq: customerRfqsTable })
     .from(customerRfqsTable)
-    .where(eq(customerRfqsTable.id, id));
+    .where(and(eq(customerRfqsTable.id, id), scopeFilter(customerRfqsTable.tenantId, getTenantId(req))));
   if (!row) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -1129,7 +1132,10 @@ router.get("/customer-rfq/:id", requireAuth, async (req, res): Promise<void> => 
 router.patch("/customer-rfq/:id", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const [existing] = await db.select().from(customerRfqsTable).where(eq(customerRfqsTable.id, id));
+  const [existing] = await db
+    .select()
+    .from(customerRfqsTable)
+    .where(and(eq(customerRfqsTable.id, id), scopeFilter(customerRfqsTable.tenantId, getTenantId(req))));
   if (!existing) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -1436,7 +1442,7 @@ router.delete("/customer-rfq/:id", requireAuth, async (req, res): Promise<void> 
   const id = parseInt(raw, 10);
   const [deleted] = await db
     .delete(customerRfqsTable)
-    .where(eq(customerRfqsTable.id, id))
+    .where(and(eq(customerRfqsTable.id, id), scopeFilter(customerRfqsTable.tenantId, getTenantId(req))))
     .returning();
   if (!deleted) {
     res.status(404).json({ error: "Not found" });

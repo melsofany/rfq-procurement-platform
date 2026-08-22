@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, customersTable } from "@workspace/db";
 import { eq, ilike, or, and, ne, sql } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../middlewares/auth";
+import { getTenantId, scopeFilter, stampTenantId } from "../../middlewares/scope";
 
 const router = Router();
 
@@ -59,7 +60,7 @@ router.post("/customers", requireAuth, async (req, res): Promise<void> => {
     const [existing] = await db
       .select()
       .from(customersTable)
-      .where(ilike(customersTable.email, email.trim()))
+      .where(and(ilike(customersTable.email, email.trim()), scopeFilter(customersTable.tenantId, getTenantId(req))))
       .limit(1);
     if (existing) {
       res.status(409).json({ error: `هذا البريد الإلكتروني مسجل بالفعل للعميل: ${existing.name}` });
@@ -72,7 +73,7 @@ router.post("/customers", requireAuth, async (req, res): Promise<void> => {
     const [existing] = await db
       .select()
       .from(customersTable)
-      .where(sql`replace(${customersTable.phone}, ' ', '') = ${cleaned}`)
+      .where(and(sql`replace(${customersTable.phone}, ' ', '') = ${cleaned}`, scopeFilter(customersTable.tenantId, getTenantId(req))))
       .limit(1);
     if (existing) {
       res.status(409).json({ error: `رقم الهاتف مسجل بالفعل للعميل: ${existing.name}` });
@@ -92,6 +93,7 @@ router.post("/customers", requireAuth, async (req, res): Promise<void> => {
       address,
       taxId,
       notes,
+      tenantId: stampTenantId(req),
     })
     .returning();
   res.status(201).json(serializeCustomer(customer));
@@ -123,7 +125,7 @@ router.patch("/customers/:id", requireAuth, async (req, res): Promise<void> => {
     const [existing] = await db
       .select()
       .from(customersTable)
-      .where(and(ilike(customersTable.email, emailVal), ne(customersTable.id, id)))
+      .where(and(ilike(customersTable.email, emailVal), ne(customersTable.id, id), scopeFilter(customersTable.tenantId, getTenantId(req))))
       .limit(1);
     if (existing) {
       res.status(409).json({ error: `هذا البريد الإلكتروني مسجل بالفعل للعميل: ${existing.name}` });
@@ -137,7 +139,7 @@ router.patch("/customers/:id", requireAuth, async (req, res): Promise<void> => {
       .select()
       .from(customersTable)
       .where(
-        and(sql`replace(${customersTable.phone}, ' ', '') = ${cleaned}`, ne(customersTable.id, id)),
+        and(sql`replace(${customersTable.phone}, ' ', '') = ${cleaned}`, ne(customersTable.id, id), scopeFilter(customersTable.tenantId, getTenantId(req))),
       )
       .limit(1);
     if (existing) {
@@ -149,7 +151,7 @@ router.patch("/customers/:id", requireAuth, async (req, res): Promise<void> => {
   const [customer] = await db
     .update(customersTable)
     .set(updates)
-    .where(eq(customersTable.id, id))
+    .where(and(eq(customersTable.id, id), scopeFilter(customersTable.tenantId, getTenantId(req))))
     .returning();
   if (!customer) {
     res.status(404).json({ error: "Not found" });
@@ -168,7 +170,7 @@ router.delete(
     try {
       const [deleted] = await db
         .delete(customersTable)
-        .where(eq(customersTable.id, id))
+        .where(and(eq(customersTable.id, id), scopeFilter(customersTable.tenantId, getTenantId(req))))
         .returning();
       if (!deleted) {
         res.status(404).json({ error: "Not found" });

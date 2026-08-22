@@ -15,6 +15,7 @@ import {
 } from "@workspace/db";
 import { eq, and, ilike, or, count, inArray, sql } from "drizzle-orm";
 import { requireAuth } from "../../middlewares/auth";
+import { getTenantId, scopeFilter, stampTenantId } from "../../middlewares/scope";
 import { generateToken } from "../../shared/token";
 import { generateOffersPdf } from "./offers-pdf.js";
 import { generateDispatchReportPdf } from "../reports/dispatch-pdf.js";
@@ -95,6 +96,7 @@ router.get("/rfq", requireAuth, async (req, res): Promise<void> => {
     })
     .from(rfqTable)
     .leftJoin(employeesTable, eq(rfqTable.employeeId, employeesTable.id))
+    .where(scopeFilter(rfqTable.tenantId, getTenantId(req)))
     .orderBy(sql`${rfqTable.createdAt} DESC`);
 
   let filtered = rows;
@@ -191,6 +193,7 @@ router.post("/rfq", requireAuth, async (req, res): Promise<void> => {
       employeeId: req.session.employeeId,
       notes,
       expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+      tenantId: stampTenantId(req),
     })
     .returning();
 
@@ -599,7 +602,7 @@ router.get("/rfq/:id", requireAuth, async (req, res): Promise<void> => {
     .select({ rfq: rfqTable, employeeName: employeesTable.name })
     .from(rfqTable)
     .leftJoin(employeesTable, eq(rfqTable.employeeId, employeesTable.id))
-    .where(eq(rfqTable.id, id));
+    .where(and(eq(rfqTable.id, id), scopeFilter(rfqTable.tenantId, getTenantId(req))));
 
   if (!row) {
     res.status(404).json({ error: "Not found" });
@@ -644,7 +647,10 @@ router.patch("/rfq/:id", requireAuth, async (req, res): Promise<void> => {
 
   // Only draft RFQs can be cancelled
   if (req.body.status === "FAILED" || req.body.status === "cancelled") {
-    const [existing] = await db.select().from(rfqTable).where(eq(rfqTable.id, id));
+    const [existing] = await db
+      .select()
+      .from(rfqTable)
+      .where(and(eq(rfqTable.id, id), scopeFilter(rfqTable.tenantId, getTenantId(req))));
     if (!existing) {
       res.status(404).json({ error: "Not found" });
       return;
@@ -659,7 +665,11 @@ router.patch("/rfq/:id", requireAuth, async (req, res): Promise<void> => {
   if (req.body.status) updates.status = req.body.status;
   if (req.body.notes !== undefined) updates.notes = req.body.notes;
 
-  const [rfq] = await db.update(rfqTable).set(updates).where(eq(rfqTable.id, id)).returning();
+  const [rfq] = await db
+    .update(rfqTable)
+    .set(updates)
+    .where(and(eq(rfqTable.id, id), scopeFilter(rfqTable.tenantId, getTenantId(req))))
+    .returning();
   if (!rfq) {
     res.status(404).json({ error: "Not found" });
     return;

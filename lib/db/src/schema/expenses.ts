@@ -1,4 +1,5 @@
-import { pgTable, text, serial, timestamp, integer, numeric } from "drizzle-orm/pg-core";
+import { integer, numeric, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { tenantsTable } from "./saas";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { purchaseOrdersTable, purchaseOrderItemsTable } from "./purchase_orders";
@@ -55,6 +56,7 @@ export const PO_CHARGE_TYPES = [
 // and optional file attachments (receipts/invoices stored as base64).
 // ─────────────────────────────────────────────────────────────────────────────
 export const operatingExpensesTable = pgTable("operating_expenses", {
+  tenantId: integer("tenant_id").references(() => tenantsTable.id),
   id: serial("id").primaryKey(),
   category: text("category").notNull(),
   description: text("description"),

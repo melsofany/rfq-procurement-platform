@@ -8,6 +8,7 @@ import path from "path";
 import { existsSync } from "fs";
 import { getPool } from "@workspace/db";
 import router from "./routes";
+import { tenantContext } from "./middlewares/tenant-context";
 import { logger } from "./shared/logger";
 
 const app: Express = express();
@@ -111,6 +112,11 @@ app.use(
   }),
 );
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
+// Tenant scope (AsyncLocalStorage) — resolves the session tenant (or the
+// superadmin x-tenant-id header) so downstream WhatsApp sends and scope
+// helpers can read it without threading it through every handler.
+app.use(tenantContext);
 
 app.use("/api", router);
 

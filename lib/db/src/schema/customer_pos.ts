@@ -1,4 +1,5 @@
-import { pgTable, text, serial, timestamp, integer, numeric } from "drizzle-orm/pg-core";
+import { integer, numeric, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { tenantsTable } from "./saas";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { employeesTable } from "./employees";
@@ -13,6 +14,7 @@ import { customerRfqsTable, customerRfqItemsTable } from "./customer_rfqs";
 // selected on entry (customerId/customerName), so a PO's customer is known even
 // without an RFQ link.
 export const customerPosTable = pgTable("customer_pos", {
+  tenantId: integer("tenant_id").references(() => tenantsTable.id),
   id: serial("id").primaryKey(),
   internalPoNo: text("internal_po_no").notNull().unique(),
   customerPoNo: text("customer_po_no").notNull(),

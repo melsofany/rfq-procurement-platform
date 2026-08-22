@@ -1,4 +1,5 @@
-import { pgTable, text, serial, timestamp, integer, numeric, boolean } from "drizzle-orm/pg-core";
+import { boolean, integer, numeric, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { tenantsTable } from "./saas";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { employeesTable } from "./employees";
@@ -7,6 +8,7 @@ import { rfqTable } from "./rfq";
 import { customerPoItemsTable } from "./customer_pos";
 
 export const purchaseOrdersTable = pgTable("purchase_orders", {
+  tenantId: integer("tenant_id").references(() => tenantsTable.id),
   id: serial("id").primaryKey(),
   internalPoNo: text("internal_po_no").notNull().unique(),
   sheetPoNo: text("sheet_po_no").notNull(),

@@ -117,7 +117,7 @@ const dbMock: any = {
         return chainable(wrapped, {
           // list chains .orderBy; detail chains .where
           orderBy: vi.fn(() => chainable(listRows)),
-          where: vi.fn(() => chainable(wrapped)),
+          where: vi.fn(() => chainable(wrapped, { orderBy: vi.fn(() => chainable(listRows)) })),
           limit: vi.fn(() => chainable(wrapped)),
         });
       }

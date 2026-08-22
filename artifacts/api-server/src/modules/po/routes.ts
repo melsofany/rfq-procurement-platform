@@ -23,12 +23,13 @@ import { lookupPoFromSheet, listSheetPoNumbers } from "../../shared/google-sheet
 import { generatePoPdf } from "./po-pdf";
 import {
   sendPoWhatsApp,
-  isWhatsAppConfigured,
   sendRepPoDispatchWhatsApp,
   formatQty as formatWaQty,
   sendPoCancelWhatsApp,
 } from "../communications/service";
 import { sendPoEmail } from "../../shared/email";
+import { isWhatsAppAvailable } from "../communications/tenant-wa";
+import { getTenantId, scopeFilter, stampTenantId } from "../../middlewares/scope";
 
 const router = Router();
 
@@ -86,6 +87,7 @@ router.get("/po", requireAuth, async (req, res): Promise<void> => {
     })
     .from(purchaseOrdersTable)
     .leftJoin(employeesTable, eq(purchaseOrdersTable.employeeId, employeesTable.id))
+    .where(scopeFilter(purchaseOrdersTable.tenantId, getTenantId(req)))
     .orderBy(sql`${purchaseOrdersTable.createdAt} DESC`);
 
   let filtered = rows;
@@ -225,6 +227,7 @@ router.post("/po", requireAuth, async (req, res): Promise<void> => {
           status: "draft",
           employeeId: req.session.employeeId,
           notes: notes || null,
+          tenantId: stampTenantId(req),
         })
         .returning();
 
@@ -462,7 +465,7 @@ router.post("/po/:id/dispatch", requireAuth, async (req, res): Promise<void> => 
     })
     .from(purchaseOrdersTable)
     .leftJoin(employeesTable, eq(purchaseOrdersTable.employeeId, employeesTable.id))
-    .where(eq(purchaseOrdersTable.id, id));
+    .where(and(eq(purchaseOrdersTable.id, id), scopeFilter(purchaseOrdersTable.tenantId, getTenantId(req))));
 
   if (!poRow) {
     res.status(404).json({ error: "Purchase order not found" });
@@ -578,7 +581,7 @@ router.post("/po/:id/dispatch", requireAuth, async (req, res): Promise<void> => 
     }
 
     // Send WhatsApp if supplier has phone and WhatsApp is configured
-    if (supplier.phone?.trim() && isWhatsAppConfigured) {
+    if (supplier.phone?.trim() && (await isWhatsAppAvailable())) {
       try {
         const wamid = await sendPoWhatsApp({
           phone: supplier.phone.trim(),
@@ -618,7 +621,7 @@ router.post("/po/:id/dispatch", requireAuth, async (req, res): Promise<void> => 
         whatsappError = err instanceof Error ? err.message : String(err);
         req.log.error({ err, supplierId, phone: supplier.phone }, "PO dispatch: WhatsApp failed");
       }
-    } else if (!isWhatsAppConfigured) {
+    } else if (!(await isWhatsAppAvailable())) {
       whatsappError = "WhatsApp not configured";
     } else if (!supplier.phone?.trim()) {
       whatsappError = "No phone number";
@@ -637,7 +640,7 @@ router.post("/po/:id/dispatch", requireAuth, async (req, res): Promise<void> => 
   let workOrderSent = false;
   let workOrderError: string | null = null;
   if (receiverName?.trim() && receiverPhone?.trim()) {
-    if (!isWhatsAppConfigured) {
+    if (!(await isWhatsAppAvailable())) {
       workOrderError = "WhatsApp not configured";
     } else {
       // Send the representative ONE consolidated receipt notification per
@@ -833,7 +836,7 @@ router.post("/po/:id/cancel", requireAuth, async (req, res): Promise<void> => {
   // blocks the cancellation itself).
   let whatsappSent = false;
   let whatsappError: string | null = null;
-  if (supplier.phone?.trim() && isWhatsAppConfigured) {
+  if (supplier.phone?.trim() && (await isWhatsAppAvailable())) {
     try {
       const waId = await sendPoCancelWhatsApp({
         phone: supplier.phone.trim(),
@@ -861,7 +864,7 @@ router.post("/po/:id/cancel", requireAuth, async (req, res): Promise<void> => {
       req.log.error({ err, supplierId: supplier.id, phone: supplier.phone }, "PO cancel: WhatsApp failed");
     }
   } else {
-    whatsappError = !isWhatsAppConfigured ? "WhatsApp not configured" : "No phone number";
+    whatsappError = !(await isWhatsAppAvailable()) ? "WhatsApp not configured" : "No phone number";
   }
 
   try {
@@ -1089,7 +1092,7 @@ router.put("/po/:id", requireAuth, async (req, res): Promise<void> => {
   const [existing] = await db
     .select()
     .from(purchaseOrdersTable)
-    .where(eq(purchaseOrdersTable.id, id));
+    .where(and(eq(purchaseOrdersTable.id, id), scopeFilter(purchaseOrdersTable.tenantId, getTenantId(req))));
   if (!existing) {
     res.status(404).json({ error: "Purchase order not found" });
     return;
@@ -1212,7 +1215,7 @@ router.delete("/po/:id", requireAuth, async (req, res): Promise<void> => {
   const [existing] = await db
     .select()
     .from(purchaseOrdersTable)
-    .where(eq(purchaseOrdersTable.id, id));
+    .where(and(eq(purchaseOrdersTable.id, id), scopeFilter(purchaseOrdersTable.tenantId, getTenantId(req))));
   if (!existing) {
     res.status(404).json({ error: "Purchase order not found" });
     return;

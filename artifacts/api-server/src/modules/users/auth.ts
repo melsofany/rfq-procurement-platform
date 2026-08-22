@@ -1,9 +1,10 @@
 import { Router, type Request } from "express";
 import bcrypt from "bcryptjs";
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
-import { db, employeesTable, auditLogTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, employeesTable, auditLogTable, tenantsTable } from "@workspace/db";
+import { eq, and, type SQL } from "drizzle-orm";
 import { logger } from "../../shared/logger";
+import { getTenantId, scopeFilter } from "../../middlewares/scope";
 
 const router = Router();
 
@@ -56,6 +57,8 @@ declare module "express-session" {
     employeeId: number;
     role: string;
     employeeName?: string;
+    tenantId?: number | null;
+    tenantName?: string | null;
   }
 }
 
@@ -98,12 +101,16 @@ router.post("/auth/login", loginIpLimiter, loginAccountLimiter, async (req, res)
     return;
   }
 
+  const tenantName = await resolveTenantName(employee.tenantId);
+
   req.session.employeeId = employee.id;
   req.session.role = employee.role;
   req.session.employeeName = employee.name;
+  req.session.tenantId = employee.tenantId ?? null;
+  req.session.tenantName = tenantName;
 
   auditLogin(req, "auth.login_success", employee.id, `Successful login for ${email}`);
-  req.log.info({ employeeId: employee.id }, "Employee logged in");
+  req.log.info({ employeeId: employee.id, tenantId: employee.tenantId }, "Employee logged in");
 
   res.json({
     employee: {
@@ -114,6 +121,8 @@ router.post("/auth/login", loginIpLimiter, loginAccountLimiter, async (req, res)
       phone: employee.phone,
       isActive: employee.isActive,
       permissions: employee.permissions ?? null,
+      tenantId: employee.tenantId ?? null,
+      tenantName,
       createdAt: employee.createdAt.toISOString(),
     },
     token: req.sessionID,
@@ -125,6 +134,16 @@ router.post("/auth/logout", (req, res): void => {
     res.json({ success: true });
   });
 });
+
+async function resolveTenantName(tenantId: number | null): Promise<string | null> {
+  if (tenantId == null) return null;
+  const [tenant] = await db
+    .select({ name: tenantsTable.name })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, tenantId))
+    .limit(1);
+  return tenant?.name ?? null;
+}
 
 router.get("/auth/me", async (req, res): Promise<void> => {
   if (!req.session.employeeId) {
@@ -141,6 +160,12 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     return;
   }
 
+  // Self-heal sessions created before the SaaS upgrade (no tenant stamp).
+  if (req.session.tenantId === undefined) {
+    req.session.tenantId = employee.tenantId ?? null;
+    req.session.tenantName = await resolveTenantName(employee.tenantId);
+  }
+
   res.json({
     id: employee.id,
     name: employee.name,
@@ -149,16 +174,31 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     phone: employee.phone,
     isActive: employee.isActive,
     permissions: employee.permissions ?? null,
+    tenantId: employee.tenantId ?? null,
+    tenantName: req.session.tenantName ?? null,
     createdAt: employee.createdAt.toISOString(),
   });
 });
+
+// Tenant filter for employee queries. Admins only ever see their own company;
+// the superadmin sees all (or one company with the x-tenant-id header).
+function employeesScope(req: Request): SQL | undefined {
+  return scopeFilter(employeesTable.tenantId, getTenantId(req));
+}
+
+const isAdminLike = (req: Request) =>
+  req.session.role === "admin" || req.session.role === "superadmin";
 
 router.get("/employees", async (req, res): Promise<void> => {
   if (!req.session.employeeId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const employees = await db.select().from(employeesTable).orderBy(employeesTable.createdAt);
+  const employees = await db
+    .select()
+    .from(employeesTable)
+    .where(and(employeesScope(req)))
+    .orderBy(employeesTable.createdAt);
   res.json(
     employees.map((e) => ({
       id: e.id,
@@ -168,19 +208,25 @@ router.get("/employees", async (req, res): Promise<void> => {
       phone: e.phone,
       isActive: e.isActive,
       permissions: e.permissions ?? null,
+      tenantId: e.tenantId ?? null,
       createdAt: e.createdAt.toISOString(),
     })),
   );
 });
 
 router.post("/employees", async (req, res): Promise<void> => {
-  if (!req.session.employeeId || req.session.role !== "admin") {
+  if (!req.session.employeeId || !isAdminLike(req)) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
   const { name, email, password, role, phone, permissions } = req.body as Record<string, unknown>;
   if (!name || !email || !password || !role) {
     res.status(400).json({ error: "Missing required fields" });
+    return;
+  }
+  // Only a superadmin may mint another superadmin (platform-level role).
+  if (role === "superadmin" && req.session.role !== "superadmin") {
+    res.status(403).json({ error: "Only a superadmin may grant the superadmin role" });
     return;
   }
 
@@ -220,6 +266,7 @@ router.post("/employees", async (req, res): Promise<void> => {
       role: role as string,
       phone: phoneStr || null,
       permissions: sanitizePermissions(permissions),
+      tenantId: getTenantId(req),
     })
     .returning();
 
@@ -237,7 +284,7 @@ router.post("/employees", async (req, res): Promise<void> => {
 });
 
 router.patch("/employees/:id", async (req, res): Promise<void> => {
-  if (!req.session.employeeId || req.session.role !== "admin") {
+  if (!req.session.employeeId || !isAdminLike(req)) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -247,6 +294,10 @@ router.patch("/employees/:id", async (req, res): Promise<void> => {
     string,
     unknown
   >;
+  if (role === "superadmin" && req.session.role !== "superadmin") {
+    res.status(403).json({ error: "Only a superadmin may grant the superadmin role" });
+    return;
+  }
 
   const updates: Record<string, unknown> = {};
   if (name) updates.name = name;
@@ -260,7 +311,7 @@ router.patch("/employees/:id", async (req, res): Promise<void> => {
   const [employee] = await db
     .update(employeesTable)
     .set(updates)
-    .where(eq(employeesTable.id, id))
+    .where(and(eq(employeesTable.id, id), employeesScope(req)))
     .returning();
   if (!employee) {
     res.status(404).json({ error: "Not found" });
@@ -281,7 +332,7 @@ router.patch("/employees/:id", async (req, res): Promise<void> => {
 
 // ─── DELETE /api/employees/:id ─────────────────────────────────────────────
 router.delete("/employees/:id", async (req, res): Promise<void> => {
-  if (!req.session.employeeId || req.session.role !== "admin") {
+  if (!req.session.employeeId || !isAdminLike(req)) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -290,7 +341,10 @@ router.delete("/employees/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "لا يمكنك حذف حسابك أثناء تسجيل الدخول" });
     return;
   }
-  const [deleted] = await db.delete(employeesTable).where(eq(employeesTable.id, id)).returning();
+  const [deleted] = await db
+    .delete(employeesTable)
+    .where(and(eq(employeesTable.id, id), employeesScope(req)))
+    .returning();
   if (!deleted) {
     res.status(404).json({ error: "الموظف غير موجود" });
     return;

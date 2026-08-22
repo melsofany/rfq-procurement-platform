@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, representativesTable } from "@workspace/db";
+import { getTenantId, scopeFilter, stampTenantId } from "../../middlewares/scope";
 
 const router = Router();
 
@@ -56,6 +57,7 @@ router.get("/representatives", async (req, res): Promise<void> => {
   const representatives = await db
     .select()
     .from(representativesTable)
+    .where(scopeFilter(representativesTable.tenantId, getTenantId(req)))
     .orderBy(representativesTable.createdAt);
   res.json(representatives.map(serializeRepresentative));
 });
@@ -80,7 +82,7 @@ router.post("/representatives", async (req, res): Promise<void> => {
   const [existing] = await db
     .select({ id: representativesTable.id })
     .from(representativesTable)
-    .where(eq(representativesTable.phone, phone))
+    .where(and(eq(representativesTable.phone, phone), scopeFilter(representativesTable.tenantId, getTenantId(req))))
     .limit(1);
   if (existing) {
     res.status(409).json({ error: "رقم الهاتف مسجل بالفعل لمندوب آخر" });
@@ -89,7 +91,7 @@ router.post("/representatives", async (req, res): Promise<void> => {
 
   const [representative] = await db
     .insert(representativesTable)
-    .values({ name, phone })
+    .values({ name, phone, tenantId: stampTenantId(req) })
     .returning();
   res.status(201).json(serializeRepresentative(representative));
 });
@@ -142,7 +144,7 @@ router.patch("/representatives/:id", async (req, res): Promise<void> => {
   const [representative] = await db
     .update(representativesTable)
     .set(updates)
-    .where(eq(representativesTable.id, id))
+    .where(and(eq(representativesTable.id, id), scopeFilter(representativesTable.tenantId, getTenantId(req))))
     .returning();
   if (!representative) {
     res.status(404).json({ error: "المندوب غير موجود" });
@@ -159,7 +161,7 @@ router.delete("/representatives/:id", async (req, res): Promise<void> => {
   const id = Number.parseInt(String(req.params.id), 10);
   const [deleted] = await db
     .delete(representativesTable)
-    .where(eq(representativesTable.id, id))
+    .where(and(eq(representativesTable.id, id), scopeFilter(representativesTable.tenantId, getTenantId(req))))
     .returning({ id: representativesTable.id });
   if (!deleted) {
     res.status(404).json({ error: "المندوب غير موجود" });

@@ -86,7 +86,7 @@ const dbMock: any = {
           : listRows;
         return chainable(wrapped, {
           orderBy: vi.fn(() => chainable(listRows)),
-          where: vi.fn(() => chainable(wrapped)),
+          where: vi.fn(() => chainable(wrapped, { orderBy: vi.fn(() => chainable(listRows)) })),
         });
       }
       // item-count aggregate: select({customerPoId, cnt}).from(poItems).where().groupBy()
@@ -151,7 +151,7 @@ const dbMock: any = {
         const rows = isRfqNoLookup ? rfqRows : [];
         return chainable(rows, {
           orderBy: vi.fn(() => chainable([])),
-          where: vi.fn(() => chainable(rows)),
+          where: vi.fn(() => chainable(rows, { orderBy: vi.fn(() => chainable([])) })),
         });
       }
       return chainable([], {
