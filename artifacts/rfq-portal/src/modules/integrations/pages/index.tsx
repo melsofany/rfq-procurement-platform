@@ -530,8 +530,8 @@ export default function IntegrationsPage() {
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             {isAr
-              ? "اربط Cortoba بأنظمة ERP الخاصة بك لاستيراد الموردين ومزامنة البيانات تلقائياً."
-              : "Connect Cortoba with your ERP systems to auto-import suppliers and sync data."}
+              ? "اربط المنصة بأنظمة ERP الخاصة بك لاستيراد الموردين ومزامنة البيانات تلقائياً."
+              : "Connect the platform with your ERP systems to auto-import suppliers and sync data."}
           </p>
         </div>
 

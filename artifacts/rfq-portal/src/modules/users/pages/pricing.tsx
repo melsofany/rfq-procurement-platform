@@ -205,7 +205,7 @@ export default function PricingPage() {
           <AlertTriangle size={40} className="mx-auto text-amber-500 mb-3" />
           <h2 className="text-lg font-bold text-foreground">الرابط غير صالح</h2>
           <p className="text-muted-foreground text-sm mt-2">
-            هذا الرابط غير صالح أو انتهت صلاحيته. يرجى التواصل مع قرطبة للتوريدات للحصول على رابط
+            هذا الرابط غير صالح أو انتهت صلاحيته. يرجى التواصل مع الشركة الطالبة للحصول على رابط
             جديد.
           </p>
         </div>
@@ -217,14 +217,10 @@ export default function PricingPage() {
   const PageHeader = () => (
     <div className="bg-[hsl(221,83%,20%)] text-white px-4 sm:px-6 py-4 sm:py-5 shadow-sm">
       <div className="max-w-5xl mx-auto flex items-start gap-3 sm:gap-4">
-        <img
-          src="/logo.png"
-          alt="Cortoba Supplies"
-          className="h-10 w-10 sm:h-14 sm:w-14 object-contain flex-shrink-0 rounded-md mt-0.5"
-        />
+        <div className="h-14 w-14 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0"><span className="text-white font-extrabold text-2xl leading-none">ت</span></div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base sm:text-lg font-bold">Cortoba Supplies</h1>
-          <p className="text-white/70 text-xs sm:text-sm">قرطبة للتوريدات</p>
+          <h1 className="text-base sm:text-lg font-bold">RFQ Platform</h1>
+          <p className="text-white/70 text-xs sm:text-sm">منصة تسعير المشتريات</p>
           <p className="text-white/40 text-[10px] sm:text-[11px] mt-0.5 leading-relaxed">
             ش.الاسكندرية - برج نجمة مطروح الدور الرابع - مرسي مطروح &nbsp;|&nbsp; ب-ض: 432-972-587
             &nbsp;|&nbsp; س-ت: 21618

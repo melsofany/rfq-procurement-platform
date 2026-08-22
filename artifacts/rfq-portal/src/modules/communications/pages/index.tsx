@@ -513,7 +513,6 @@ function ChatsTab({ onStatsChange }: { onStatsChange: (s: Stats) => void }) {
                 body: ev.senderName
                   ? `${t("whatsapp.from")} ${ev.senderName}`
                   : `${t("whatsapp.from")} ${ev.phone}`,
-                icon: "/logo.png",
                 tag: "wa",
                 ...({ renotify: true } as Record<string, unknown>),
               });

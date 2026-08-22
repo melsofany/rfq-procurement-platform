@@ -10,6 +10,7 @@ export type EmployeeUpdateRole = typeof EmployeeUpdateRole[keyof typeof Employee
 
 
 export const EmployeeUpdateRole = {
+  superadmin: 'superadmin',
   admin: 'admin',
   manager: 'manager',
   purchasing: 'purchasing',

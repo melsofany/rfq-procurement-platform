@@ -101,6 +101,25 @@ router.post("/auth/login", loginIpLimiter, loginAccountLimiter, async (req, res)
     return;
   }
 
+  // Block login for suspended/pending tenants (superadmin has no tenant).
+  if (employee.tenantId != null) {
+    const [tenantRow] = await db
+      .select({ status: tenantsTable.status })
+      .from(tenantsTable)
+      .where(eq(tenantsTable.id, employee.tenantId))
+      .limit(1);
+    if (tenantRow && tenantRow.status !== "active") {
+      auditLogin(req, "auth.login_failed", employee.id, `Login blocked — tenant ${employee.tenantId} is ${tenantRow.status}`);
+      res.status(403).json({
+        error:
+          tenantRow.status === "suspended"
+            ? "حساب شركتك موقوف مؤقتاً — تواصل مع إدارة المنصة لإعادة التفعيل"
+            : "حساب شركتك قيد التفعيل — تواصل مع إدارة المنصة",
+      });
+      return;
+    }
+  }
+
   const tenantName = await resolveTenantName(employee.tenantId);
 
   req.session.employeeId = employee.id;

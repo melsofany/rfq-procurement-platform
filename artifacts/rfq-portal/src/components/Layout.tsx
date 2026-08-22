@@ -18,6 +18,10 @@ import {
   Plug,
   UserRound,
   Calculator,
+  Settings,
+  Building2,
+  Building,
+  CreditCard,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -53,6 +57,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/audit", label: t("nav.auditLog"), icon: ClipboardList },
     { href: "/integrations", label: t("nav.integrations"), icon: Plug },
   ];
+
+  // Company WhatsApp settings — admin/manager of the tenant (and superadmin).
+  const settingsNavItems = [
+    { href: "/settings/whatsapp", label: t("nav.whatsappSettings"), icon: Settings },
+  ];
+  const visibleSettings =
+    role === "admin" || role === "manager" || role === "superadmin" ? settingsNavItems : [];
+
+  // Platform management — superadmin only (SaaS tenants/subscriptions).
+  const platformNavItems = [
+    { href: "/admin", label: t("nav.platform"), icon: Building2 },
+    { href: "/admin/tenants", label: t("nav.tenants"), icon: Building },
+    { href: "/admin/plans", label: t("nav.plans"), icon: CreditCard },
+  ];
+  const visiblePlatform = role === "superadmin" ? platformNavItems : [];
 
   // Filter both groups by the employee's effective permissions.
   const visibleMain = mainNavItems.filter((i) => canAccessPath(role, perms, i.href));
@@ -105,14 +124,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex items-center justify-between px-4 py-3 border-b border-sidebar-border min-h-[57px]">
           {(sidebarOpen || mobile) && (
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <img
-                src="/logo.png"
-                alt="Cortoba Supplies"
-                className="h-9 w-9 object-contain flex-shrink-0"
-              />
+              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-extrabold text-lg leading-none">ت</span>
+              </div>
               <div className="overflow-hidden">
                 <p className="text-sidebar-foreground font-bold text-sm leading-tight truncate">
-                  Cortoba Supplies
+                  {t("login.title")}
                 </p>
                 <p className="text-sidebar-foreground/50 text-xs leading-tight truncate">
                   {t("app.subtitle")}
@@ -121,7 +138,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
           )}
           {!sidebarOpen && !mobile && (
-            <img src="/logo.png" alt="logo" className="h-8 w-8 object-contain mx-auto" />
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto">
+              <span className="text-white font-extrabold text-base leading-none">ت</span>
+            </div>
           )}
           {mobile ? (
             <button
@@ -173,14 +192,42 @@ export function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
 
-          {visibleAdmin.length > 0 && (
+          {(visibleAdmin.length > 0 || visibleSettings.length > 0) && (
             <>
               {(sidebarOpen || mobile) && (
                 <p className="text-sidebar-foreground/30 text-xs px-2 pt-3 pb-1 uppercase tracking-wider">
                   {t("nav.admin")}
                 </p>
               )}
-              {visibleAdmin.map((item) => {
+              {[...visibleAdmin, ...visibleSettings].map((item) => {
+                const active = location === item.href || location.startsWith(item.href + "/");
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <a
+                      className={cn(
+                        "flex items-center gap-3 px-2 py-2.5 rounded text-sm font-medium transition-colors",
+                        active
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50",
+                      )}
+                    >
+                      <item.icon size={18} className="flex-shrink-0" />
+                      {(sidebarOpen || mobile) && <span className="truncate">{item.label}</span>}
+                    </a>
+                  </Link>
+                );
+              })}
+            </>
+          )}
+
+          {visiblePlatform.length > 0 && (
+            <>
+              {(sidebarOpen || mobile) && (
+                <p className="text-sidebar-foreground/30 text-xs px-2 pt-3 pb-1 uppercase tracking-wider">
+                  {t("nav.platform")}
+                </p>
+              )}
+              {visiblePlatform.map((item) => {
                 const active = location === item.href || location.startsWith(item.href + "/");
                 return (
                   <Link key={item.href} href={item.href}>
@@ -266,8 +313,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <Menu size={22} />
         </button>
         <div className="flex items-center gap-2 overflow-hidden">
-          <img src="/logo.png" alt="logo" className="h-7 w-7 object-contain flex-shrink-0" />
-          <p className="text-sidebar-foreground font-bold text-sm truncate">Cortoba Supplies</p>
+          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
+            <span className="text-white font-extrabold text-sm leading-none">ت</span>
+          </div>
+          <p className="text-sidebar-foreground font-bold text-sm truncate">{t("login.title")}</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <button

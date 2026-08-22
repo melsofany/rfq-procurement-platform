@@ -805,7 +805,7 @@ export default function AnalyticsPage() {
 <div class="header">
   <div>
     <h1>تقرير أداء المشتريات الشامل</h1>
-    <p style="font-size:11px;color:#64748b;margin-top:4px">قرطبة للتوريدات</p>
+    <p style="font-size:11px;color:#64748b;margin-top:4px">منصة تسعير المشتريات</p>
   </div>
   <div class="meta">
     <div>تاريخ التقرير: ${today}</div>
@@ -885,7 +885,7 @@ ${
 }
 
 <div class="footer">
-  قرطبة للتوريدات · INFO@CORTOBA-SUPPLIES.COM · تم إنشاء هذا التقرير بتاريخ ${today}
+  منصة تسعير المشتريات · تم إنشاء هذا التقرير بتاريخ ${today}
 </div>
 
 <div class="nop">

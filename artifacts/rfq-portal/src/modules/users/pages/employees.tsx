@@ -50,7 +50,7 @@ export default function EmployeesPage() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
 
-  const canManageEmps = me?.role === "admin";
+  const canManageEmps = me?.role === "admin" || me?.role === "superadmin";
   const allowedTabs = filterTabs(me?.role, me?.permissions, "employees", [
     "employees",
     "representatives",
@@ -271,7 +271,7 @@ export default function EmployeesPage() {
                       value={createForm.email}
                       onChange={(e) => updateCreate("email", e.target.value)}
                       type="email"
-                      placeholder="ahmed@cortoba-supplies.com"
+                      placeholder="ahmed@company.com"
                       required
                     />
                   </div>

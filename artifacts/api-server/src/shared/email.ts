@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { promises as dns } from "dns";
 import { logger } from "./logger";
+import { resolveBrand } from "./branding";
 
 const SMTP_TIMEOUT_MS = 10000;
 
@@ -74,7 +75,8 @@ export async function sendPoEmail(opts: {
   pdfBuffer: Buffer;
 }): Promise<void> {
   const transporter = await createTransporter();
-  const senderEmail = (process.env.SMTP_USER || "info@cortoba-supplies.com").toLowerCase();
+  const senderEmail = (process.env.SMTP_USER || "info@rfq-platform.com").toLowerCase();
+  const brand = await resolveBrand();
 
   const itemRows = opts.items
     .map(
@@ -103,8 +105,8 @@ export async function sendPoEmail(opts: {
 <body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f3f4f6">
   <div style="max-width:700px;margin:32px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
     <div style="background:#1e3a5f;padding:20px 32px">
-      <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700">Cortoba Supplies</h1>
-      <p style="margin:4px 0 0;color:#93c5fd;font-size:13px">قرطبة للتوريدات — أمر شراء</p>
+      <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700">${brand.nameEn}</h1>
+      <p style="margin:4px 0 0;color:#93c5fd;font-size:13px">${brand.nameAr} — أمر شراء</p>
     </div>
     <div style="padding:32px">
       <p style="margin:0 0 8px;font-size:15px;color:#374151">Dear <strong>${opts.toName}</strong>,</p>
@@ -144,7 +146,7 @@ export async function sendPoEmail(opts: {
 
   const text = `Dear ${opts.toName},
 
-Please find attached Purchase Order ${opts.poNo} from Cortoba Supplies (قرطبة للتوريدات).
+Please find attached Purchase Order ${opts.poNo} from ${brand.nameEn} (${brand.nameAr}).
 
 ITEMS
 -----
@@ -154,11 +156,11 @@ ${receiverLine ? "Receiving Representative: " + receiverLine + "\n" : ""}${opts.
 ---
 ${opts.employeeName}${opts.employeePhone ? " | " + opts.employeePhone : ""}
 ${senderEmail}
-Cortoba Supplies — ش.الاسكندرية - برج نجمة مطروح الدور الرابع - مرسي مطروح`.trim();
+${brand.nameEn}${brand.address ? " — " + brand.address : ""}`.trim();
 
   try {
     await transporter.sendMail({
-      from: `"Cortoba Supplies قرطبة للتوريدات" <${senderEmail}>`,
+      from: `"${brand.nameEn}" <${senderEmail}>`,
       replyTo: `"${opts.employeeName}" <${senderEmail}>`,
       to: `"${opts.toName}" <${opts.to}>`,
       subject: `Purchase Order — ${opts.poNo}`,
@@ -212,7 +214,8 @@ export async function sendRfqEmail(opts: {
   employeePhone?: string | null;
 }): Promise<void> {
   const transporter = await createTransporter();
-  const senderEmail = (process.env.SMTP_USER || "info@cortoba-supplies.com").toLowerCase();
+  const senderEmail = (process.env.SMTP_USER || "info@rfq-platform.com").toLowerCase();
+  const brand = await resolveBrand();
 
   const itemRows = opts.items
     .map(
@@ -238,8 +241,8 @@ export async function sendRfqEmail(opts: {
 <body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f3f4f6">
   <div style="max-width:700px;margin:32px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
     <div style="background:#1e3a5f;padding:20px 32px">
-      <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700">Cortoba Supplies</h1>
-      <p style="margin:4px 0 0;color:#93c5fd;font-size:13px">قرطبة للتوريدات</p>
+      <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700">${brand.nameEn}</h1>
+      <p style="margin:4px 0 0;color:#93c5fd;font-size:13px">${brand.nameAr}</p>
     </div>
     <div style="padding:32px">
       <p style="margin:0 0 8px;font-size:15px;color:#374151">Dear <strong>${opts.toName}</strong>,</p>
@@ -297,7 +300,7 @@ export async function sendRfqEmail(opts: {
   const text = `
 Dear ${opts.toName},
 
-Cortoba Supplies (قرطبة للتوريدات) would like to request your best quotation for the following items.
+${brand.nameEn} (${brand.nameAr}) would like to request your best quotation for the following items.
 
 RFQ Reference : ${opts.rfqNo}
 Closing Date  : ${opts.closeDate}
@@ -315,12 +318,12 @@ It expires on ${opts.closeDate}.
 ---
 ${opts.employeeName}${opts.employeePhone ? " | " + opts.employeePhone : ""}
 ${senderEmail}
-Cortoba Supplies — ش.الاسكندرية - برج نجمة مطروح الدور الرابع - مرسي مطروح
+${brand.nameEn}${brand.address ? " — " + brand.address : ""}
 `.trim();
 
   try {
     await transporter.sendMail({
-      from: `"Cortoba Supplies قرطبة للتوريدات" <${senderEmail}>`,
+      from: `"${brand.nameEn}" <${senderEmail}>`,
       replyTo: `"${opts.employeeName}" <${senderEmail}>`,
       to: `"${opts.toName}" <${opts.to}>`,
       subject: `Request for Quotation — ${opts.rfqNo} (Closing: ${opts.closeDate})`,
@@ -328,7 +331,7 @@ Cortoba Supplies — ش.الاسكندرية - برج نجمة مطروح الد
       html,
       headers: {
         "X-Priority": "1",
-        "X-Mailer": "Cortoba-RFQ-System",
+        "X-Mailer": "RFQ-Platform",
       },
     });
     logger.info({ to: opts.to, rfqNo: opts.rfqNo }, "RFQ email sent successfully");

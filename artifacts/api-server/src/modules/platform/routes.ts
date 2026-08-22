@@ -18,8 +18,9 @@ import { requireRole } from "../../middlewares/auth";
  */
 const router = Router();
 
-// All routes below are platform-level.
-router.use(requireRole("superadmin"));
+// All routes below are platform-level. Scope the guard to /platform/* only —
+// a bare router.use() would gate every later-mounted module (settings, etc.).
+router.use("/platform", requireRole("superadmin"));
 
 function audit(req: Request, action: string, entityId: number | null, description: string): void {
   void db
@@ -66,6 +67,7 @@ interface AdminInput {
 
 interface TenantBody {
   name?: string;
+  nameEn?: string | null;
   slug?: string;
   contactEmail?: string;
   contactPhone?: string;
@@ -82,6 +84,7 @@ function serializeTenant(t: TenantRow) {
   return {
     id: t.id,
     name: t.name,
+    nameEn: t.nameEn,
     slug: t.slug,
     contactEmail: t.contactEmail,
     contactPhone: t.contactPhone,
@@ -239,6 +242,7 @@ router.post("/platform/tenants", async (req, res): Promise<void> => {
     .insert(tenantsTable)
     .values({
       name,
+      nameEn: body.nameEn?.trim() || null,
       slug,
       contactEmail: body.contactEmail ?? null,
       contactPhone: body.contactPhone ?? null,
@@ -339,6 +343,7 @@ router.patch("/platform/tenants/:id", async (req, res): Promise<void> => {
   const body = req.body as TenantBody;
   const updates: Record<string, unknown> = {};
   if (body.name !== undefined) updates.name = body.name;
+  if (body.nameEn !== undefined) updates.nameEn = body.nameEn;
   if (body.contactEmail !== undefined) updates.contactEmail = body.contactEmail;
   if (body.contactPhone !== undefined) updates.contactPhone = body.contactPhone;
   if (body.notes !== undefined) updates.notes = body.notes;
@@ -423,6 +428,98 @@ router.post("/platform/tenants/:id/subscriptions", async (req, res): Promise<voi
     .returning();
   audit(req, "platform.subscription.created", sub.id, `Tenant ${id} subscribed to plan ${plan.code}`);
   res.status(201).json(serializeSubscription(sub));
+});
+
+router.patch("/platform/tenants/:id/subscriptions/:subId", async (req, res): Promise<void> => {
+  const tenantId = parseId(req);
+  const subId = parseInt(String(req.params.subId), 10);
+  if (!Number.isFinite(subId)) {
+    res.status(400).json({ error: "Invalid subscription id" });
+    return;
+  }
+  const body = req.body as Record<string, unknown>;
+  const updates: Record<string, unknown> = {};
+  if (body.status !== undefined) {
+    if (!["trialing", "active", "past_due", "canceled", "expired"].includes(String(body.status))) {
+      res.status(400).json({ error: "status must be trialing|active|past_due|canceled|expired" });
+      return;
+    }
+    updates.status = body.status;
+  }
+  if (body.endsAt !== undefined) updates.endsAt = body.endsAt == null ? null : String(body.endsAt);
+  if (body.notes !== undefined) updates.notes = body.notes == null ? null : String(body.notes);
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  const [sub] = await db
+    .update(tenantSubscriptionsTable)
+    .set(updates)
+    .where(
+      and(
+        eq(tenantSubscriptionsTable.id, subId),
+        eq(tenantSubscriptionsTable.tenantId, tenantId),
+      ),
+    )
+    .returning();
+  if (!sub) {
+    res.status(404).json({ error: "Subscription not found" });
+    return;
+  }
+  audit(req, "platform.subscription.updated", sub.id, `Subscription ${sub.id} updated (${JSON.stringify(updates)})`);
+  res.json(serializeSubscription(sub));
+});
+
+router.post("/platform/tenants/:id/employees/:employeeId/password", async (req, res): Promise<void> => {
+  const tenantId = parseId(req);
+  const employeeId = parseInt(String(req.params.employeeId), 10);
+  const newPassword = String((req.body as Record<string, unknown>)?.newPassword ?? "");
+  if (!Number.isFinite(employeeId)) {
+    res.status(400).json({ error: "Invalid employee id" });
+    return;
+  }
+  if (newPassword.length < 8) {
+    res.status(400).json({ error: "كلمة المرور يجب ألا تقل عن 8 أحرف" });
+    return;
+  }
+  const hash = await bcrypt.hash(newPassword, 10);
+  const [emp] = await db
+    .update(employeesTable)
+    .set({ passwordHash: hash })
+    .where(and(eq(employeesTable.id, employeeId), eq(employeesTable.tenantId, tenantId)))
+    .returning({ id: employeesTable.id, email: employeesTable.email });
+  if (!emp) {
+    res.status(404).json({ error: "Employee not found in this tenant" });
+    return;
+  }
+  audit(req, "platform.employee.password_reset", emp.id, `Password reset for employee ${emp.email} (tenant ${tenantId})`);
+  res.json({ ok: true, email: emp.email });
+});
+
+// ─── Platform dashboard stats ──────────────────────────────────────────────
+router.get("/platform/stats", async (_req, res): Promise<void> => {
+  const [tenants, subs] = await Promise.all([
+    db.select({ id: tenantsTable.id, status: tenantsTable.status, createdAt: tenantsTable.createdAt, name: tenantsTable.name, nameEn: tenantsTable.nameEn, slug: tenantsTable.slug, contactEmail: tenantsTable.contactEmail, contactPhone: tenantsTable.contactPhone, notes: tenantsTable.notes, updatedAt: tenantsTable.updatedAt }).from(tenantsTable),
+    db.select({ status: tenantSubscriptionsTable.status }).from(tenantSubscriptionsTable),
+  ]);
+  const count = (list: readonly string[], v: string) => list.filter((s) => s === v).length;
+  res.json({
+    tenants: {
+      total: tenants.length,
+      active: count(tenants.map((t) => t.status), "active"),
+      suspended: count(tenants.map((t) => t.status), "suspended"),
+      pending: count(tenants.map((t) => t.status), "pending"),
+    },
+    subscriptions: {
+      active: count(subs.map((s) => s.status), "active"),
+      trial: count(subs.map((s) => s.status), "trialing"),
+    },
+    recentTenants: tenants
+      .slice()
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 5)
+      .map(serializeTenant),
+  });
 });
 
 // ─── Per-tenant WhatsApp credentials ───────────────────────────────────────

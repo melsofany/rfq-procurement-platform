@@ -55,6 +55,15 @@ import NewCustomerPoPage from "@/modules/customer-po/pages/new";
 import CustomerPoDetailPage from "@/modules/customer-po/pages/detail";
 import AccountsPage from "@/modules/accounts/pages/index";
 
+// ── Module: Admin — إدارة المنصة (superadmin) ─────────────────────────────
+import AdminDashboardPage from "@/modules/admin/pages/index";
+import AdminTenantsPage from "@/modules/admin/pages/tenants";
+import AdminTenantDetailPage from "@/modules/admin/pages/tenant-detail";
+import AdminPlansPage from "@/modules/admin/pages/plans";
+
+// ── Module: Settings — إعدادات الشركة ─────────────────────────────────────
+import WhatsappSettingsPage from "@/modules/settings/pages/whatsapp";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -218,6 +227,25 @@ function Router() {
       </Route>
       <Route path="/accounts">
         <ProtectedRoute component={AccountsPage} />
+      </Route>
+
+      {/* ── Module: Admin (superadmin only — pages self-guard) ────────── */}
+      <Route path="/admin/tenants/:id">
+        <ProtectedRoute component={AdminTenantDetailPage} />
+      </Route>
+      <Route path="/admin/tenants">
+        <ProtectedRoute component={AdminTenantsPage} />
+      </Route>
+      <Route path="/admin/plans">
+        <ProtectedRoute component={AdminPlansPage} />
+      </Route>
+      <Route path="/admin">
+        <ProtectedRoute component={AdminDashboardPage} />
+      </Route>
+
+      {/* ── Module: Settings ───────────────────────────────────────────── */}
+      <Route path="/settings/whatsapp">
+        <ProtectedRoute component={WhatsappSettingsPage} />
       </Route>
 
       <Route component={NotFound} />

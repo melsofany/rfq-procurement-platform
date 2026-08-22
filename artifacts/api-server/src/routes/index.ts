@@ -25,6 +25,7 @@ import integrationsModule from "../modules/integrations/index";
 import chatwootModule from "../modules/chatwoot/index";
 import backupModule from "../modules/backup/index";
 import platformModule from "../modules/platform/index";
+import settingsModule from "../modules/settings/index";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(chatwootModule); // chatwoot SSO bridge for the /whatsapp inbox
 router.use(integrationsModule); // ERP integrations (Odoo · SAP · Oracle · Google Sheets)
 router.use(backupModule); // daily DB backup → Google Drive
 router.use(platformModule); // SaaS platform: tenants · plans · subscriptions · tenant whatsapp
+router.use(settingsModule); // tenant self-service settings (whatsapp)
 
 export default router;

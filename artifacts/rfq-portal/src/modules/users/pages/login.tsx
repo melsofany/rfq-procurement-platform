@@ -54,14 +54,12 @@ export default function LoginPage() {
           </button>
         </div>
         <div className="text-center mb-8">
-          <img
-            src="/logo.png"
-            alt="Cortoba Supplies"
-            className="h-20 w-20 object-contain mx-auto mb-3"
-          />
+          <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-3 shadow-lg">
+            <span className="text-white font-extrabold text-4xl leading-none">ت</span>
+          </div>
           <h1 className="text-2xl font-bold text-foreground">{t("login.title")}</h1>
           <p className="text-muted-foreground text-sm mt-1">{t("login.subtitle")}</p>
-          <p className="text-muted-foreground text-xs mt-1">{t("login.address")}</p>
+          {t("login.address") ? <p className="text-muted-foreground text-xs mt-1">{t("login.address")}</p> : null}
           <p className="text-muted-foreground text-sm mt-3">{t("login.signIn")}</p>
         </div>
 
@@ -74,7 +72,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@cortoba-supplies.com"
+                placeholder="you@company.com"
                 required
                 autoFocus
               />

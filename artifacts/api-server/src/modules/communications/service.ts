@@ -19,6 +19,7 @@ import {
   Document as WADocument,
 } from "whatsapp-api-js/messages";
 import { logger } from "../../shared/logger";
+import { resolveBrand } from "../../shared/branding";
 import { generateRfqPdf } from "../rfq/rfq-pdf";
 import { generatePoPdf } from "../po/po-pdf";
 import { waChannel } from "./tenant-wa";
@@ -75,7 +76,7 @@ export async function ensureWorkOrderTemplate(): Promise<void> {
       components: [
         {
           type: "BODY",
-          text: "أمر شغل جديد من قرطبة للتوريدات.\nالمندوب: {{1}}\nرقم أمر الشراء: {{2}}\nالمورد: {{3}}\nهاتف المورد: {{4}}\nعنوان المورد: {{5}}\nالأصناف: {{6}}\nموعد الاستلام: {{7}}\nيرجى اختيار أحد الأزرار أدناه لتأكيد الاستلام أو الرفض.",
+          text: "أمر شغل جديد للمندوب.\nالمندوب: {{1}}\nرقم أمر الشراء: {{2}}\nالمورد: {{3}}\nهاتف المورد: {{4}}\nعنوان المورد: {{5}}\nالأصناف: {{6}}\nموعد الاستلام: {{7}}\nيرجى اختيار أحد الأزرار أدناه لتأكيد الاستلام أو الرفض.",
           example: { body_text: [["أحمد محمد علي", "PO-2026-000001", "شركة النور", "+201000000000", "القاهرة، مصر", "1. صنف x2", "2026-08-15"]] },
         },
         {
@@ -122,7 +123,7 @@ export async function ensurePoCancelTemplate(): Promise<void> {
       components: [
         {
           type: "BODY",
-          text: "تم إلغاء أمر التوريد التالي من قرطبة للتوريدات.\nالمورد: {{1}}\nرقم أمر الشراء: {{2}}\nسبب الإلغاء: {{3}}\nيرجى عدم تنفيذ أو شحن أي بند متعلق بهذا الأمر.",
+          text: "تم إلغاء أمر التوريد التالي.\nالمورد: {{1}}\nرقم أمر الشراء: {{2}}\nسبب الإلغاء: {{3}}\nيرجى عدم تنفيذ أو شحن أي بند متعلق بهذا الأمر.",
           example: { body_text: [["شركة النور", "PO-2026-000001", "إلغاء بناءً على طلب العميل"]] },
         },
       ],
@@ -308,6 +309,7 @@ async function sendRfqTemplateUtility(to: string, opts: SendRfqOpts): Promise<st
 async function sendRfqTemplateWithPdf(to: string, opts: SendRfqOpts): Promise<string> {
   const pdfBuffer = await Promise.race<Buffer>([
     generateRfqPdf({
+      brand: await resolveBrand(),
       rfqNo: opts.rfqNo,
       customerRfqNo: opts.customerRfqNo,
       rfqDate: opts.rfqDate,
@@ -467,6 +469,7 @@ export async function sendPoWhatsApp(opts: SendPoOpts): Promise<string | null> {
   // Generate PDF once — shared by template attempt and fallback
   const pdfBuffer = await Promise.race<Buffer>([
     generatePoPdf({
+      brand: await resolveBrand(),
       poNo: opts.poNo,
       poDate: opts.poDate,
       supplierName: opts.supplierName,

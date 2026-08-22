@@ -16,6 +16,7 @@ import {
 import { eq, and, ilike, or, count, inArray, sql } from "drizzle-orm";
 import { requireAuth } from "../../middlewares/auth";
 import { getTenantId, scopeFilter, stampTenantId } from "../../middlewares/scope";
+import { resolveBrand } from "../../shared/branding";
 import { generateToken } from "../../shared/token";
 import { generateOffersPdf } from "./offers-pdf.js";
 import { generateDispatchReportPdf } from "../reports/dispatch-pdf.js";
@@ -1371,6 +1372,7 @@ router.get("/rfq/:id/dispatch-report", requireAuth, async (req, res): Promise<vo
 
     // 4. Generate PDF buffer
     const pdfBuffer = await generateDispatchReportPdf({
+      brand: await resolveBrand(),
       rfqNo: rfqRow.rfq.internalRfqNo,
       customerRfqNo: rfqRow.rfq.customerRfqNo ?? "",
       exportDate: new Date().toLocaleDateString("en-GB"),
@@ -1573,6 +1575,7 @@ router.get("/rfq/:id/offers/pdf", requireAuth, async (req, res): Promise<void> =
       .filter((s) => s.generalNotes || s.attachments.length > 0);
 
     const pdfBuffer = await generateOffersPdf({
+      brand: await resolveBrand(),
       rfqNo: rfqRow.rfq.internalRfqNo,
       customerRfqNo: rfqRow.rfq.customerRfqNo,
       exportDate,

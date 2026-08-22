@@ -6,7 +6,7 @@
  *
  * Env:
  *   GOOGLE_DRIVE_BACKUP_FOLDER_ID  Drive folder to upload into
- *                                  (default: the shared Cortoba backups folder)
+ *                                  (default: the shared platform backups folder)
  *   BACKUP_HOUR_UTC                Hour of day (UTC) to run, 0-23 (default 3)
  *   BACKUP_RETENTION_DAYS          Delete backups older than this (default 30)
  *

@@ -405,7 +405,7 @@ export default function ConnectPopupPage() {
             <div className="text-center space-y-1">
               <h1 className="text-xl font-bold text-gray-900">{brand.description}</h1>
               <p className="text-sm text-gray-400">
-                {brand.name} سيطلب منك الإذن للاتصال بـ Cortoba
+                {brand.name} سيطلب منك الإذن للاتصال بالمنصة
               </p>
             </div>
 
@@ -482,7 +482,7 @@ export default function ConnectPopupPage() {
             {/* App info */}
             <div className="text-center space-y-2">
               <div className="flex items-center justify-center gap-3 mb-4">
-                {/* Cortoba logo */}
+                {/* Platform logo */}
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                   <span className="text-2xl font-black text-primary">C</span>
                 </div>
@@ -493,9 +493,9 @@ export default function ConnectPopupPage() {
                 </div>
                 <div className="w-12 h-12 flex items-center justify-center">{brand.logo}</div>
               </div>
-              <h2 className="text-lg font-bold text-gray-900">Cortoba يطلب الإذن</h2>
+              <h2 className="text-lg font-bold text-gray-900">المنصة تطلب الإذن</h2>
               <p className="text-sm text-gray-500">
-                هل تسمح لـ <strong>Cortoba Supplies</strong> بالاتصال بحسابك على{" "}
+                هل تسمح للمنصة بالاتصال بحسابك على{" "}
                 <strong>{brand.name}</strong>؟
               </p>
               {testResult?.version && (
@@ -568,7 +568,7 @@ export default function ConnectPopupPage() {
             <div>
               <h2 className="text-xl font-bold text-gray-900">تم الاتصال بنجاح! 🎉</h2>
               <p className="text-sm text-gray-500 mt-1">
-                تم ربط <strong>{brand.name}</strong> بـ Cortoba بنجاح.
+                تم ربط <strong>{brand.name}</strong> بالمنصة بنجاح.
               </p>
               {testResult?.version && (
                 <p className="text-xs text-gray-400 mt-0.5">{testResult.version}</p>
@@ -593,7 +593,7 @@ export default function ConnectPopupPage() {
 
       {/* Footer */}
       <div className="text-center py-3 text-xs text-gray-300 border-t border-gray-100">
-        Cortoba Supplies · الاتصال مشفّر بالكامل
+        RFQ Platform · الاتصال مشفّر بالكامل
       </div>
     </div>
   );

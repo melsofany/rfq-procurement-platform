@@ -106,7 +106,7 @@ export default function TaxSettingsTab() {
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               className="h-9 text-sm"
-              placeholder="Cortoba Supplies"
+              placeholder="اسم الشركة"
             />
           </Field>
           <Field label="الرقم الضريبي (البطاقة الضريبية)">

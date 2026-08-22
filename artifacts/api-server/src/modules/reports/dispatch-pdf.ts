@@ -1,5 +1,6 @@
 import PDFDocument from "pdfkit";
 import { resolve, dirname } from "path";
+import type { BrandInfo } from "../../shared/branding";
 import { fileURLToPath } from "url";
 
 export interface DispatchSupplier {
@@ -14,6 +15,7 @@ export interface DispatchSupplier {
 }
 
 export interface DispatchReportOptions {
+  brand?: BrandInfo;
   rfqNo: string;
   customerRfqNo: string;
   exportDate: string;
@@ -47,6 +49,9 @@ function channelLabel(s: DispatchSupplier): string {
  * Uses the Amiri font (same as rfqPdf / offersPdf) so Arabic text renders correctly.
  */
 export function generateDispatchReportPdf(opts: DispatchReportOptions): Promise<Buffer> {
+  const brandNameAr = opts.brand?.nameAr ?? "منصة تسعير المشتريات";
+  const brandNameEn = opts.brand?.nameEn ?? "RFQ Platform";
+  const brandEmail = (opts.brand?.email ?? "info@rfq-platform.com").toUpperCase();
   return new Promise<Buffer>((resolve, reject) => {
     const fontPath = getFontPath();
 
@@ -58,7 +63,7 @@ export function generateDispatchReportPdf(opts: DispatchReportOptions): Promise<
       compress: false,
       info: {
         Title: `Dispatch Report - ${opts.rfqNo}`,
-        Author: "Cortoba Supplies",
+        Author: brandNameEn,
       },
     });
 
@@ -105,7 +110,7 @@ export function generateDispatchReportPdf(opts: DispatchReportOptions): Promise<
         .font("Amiri")
         .fontSize(10)
         .fillColor(GOLD)
-        .text("RFQ SEND LOG  |  Cortoba Supplies", M, yStart + 44, { lineBreak: false });
+        .text("RFQ SEND LOG  |  " + brandNameEn, M, yStart + 44, { lineBreak: false });
       return yStart + H;
     }
 
@@ -145,7 +150,7 @@ export function generateDispatchReportPdf(opts: DispatchReportOptions): Promise<
         .font("Amiri")
         .fontSize(8)
         .fillColor(GOLD)
-        .text("Cortoba Supplies  |  INFO@CORTOBA-SUPPLIES.COM", M, fy + 7, {
+        .text(brandNameEn + "  |  " + brandEmail, M, fy + 7, {
           width: CW,
           align: "center",
           lineBreak: false,

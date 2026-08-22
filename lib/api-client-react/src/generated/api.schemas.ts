@@ -18,6 +18,7 @@ export type EmployeeRole = typeof EmployeeRole[keyof typeof EmployeeRole];
 
 
 export const EmployeeRole = {
+  superadmin: 'superadmin',
   admin: 'admin',
   manager: 'manager',
   purchasing: 'purchasing',
@@ -55,6 +56,7 @@ export type EmployeeInputRole = typeof EmployeeInputRole[keyof typeof EmployeeIn
 
 
 export const EmployeeInputRole = {
+  superadmin: 'superadmin',
   admin: 'admin',
   manager: 'manager',
   purchasing: 'purchasing',
@@ -84,6 +86,7 @@ export type EmployeeUpdateRole = typeof EmployeeUpdateRole[keyof typeof Employee
 
 
 export const EmployeeUpdateRole = {
+  superadmin: 'superadmin',
   admin: 'admin',
   manager: 'manager',
   purchasing: 'purchasing',

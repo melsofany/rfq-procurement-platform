@@ -30,6 +30,7 @@ import {
 import { sendPoEmail } from "../../shared/email";
 import { isWhatsAppAvailable } from "../communications/tenant-wa";
 import { getTenantId, scopeFilter, stampTenantId } from "../../middlewares/scope";
+import { resolveBrand } from "../../shared/branding";
 
 const router = Router();
 
@@ -507,7 +508,7 @@ router.post("/po/:id/dispatch", requireAuth, async (req, res): Promise<void> => 
 
   const poNo = poRow.po.internalPoNo;
   const poDate = poRow.po.createdAt.toISOString();
-  const employeeName = poRow.employeeName ?? "Cortoba Supplies";
+  const employeeName = poRow.employeeName ?? (await resolveBrand()).nameAr;
   const employeePhone = poRow.employeePhone ?? null;
   const receiverName = poRow.po.receiverName ?? null;
   const receiverPhone = poRow.po.receiverPhone ?? null;
@@ -528,6 +529,7 @@ router.post("/po/:id/dispatch", requireAuth, async (req, res): Promise<void> => 
     let pdfBuffer: Buffer | null = null;
     try {
       pdfBuffer = await generatePoPdf({
+        brand: await resolveBrand(),
         poNo,
         poDate,
         supplierName: supplier.name,
@@ -972,13 +974,14 @@ router.get("/po/:id/pdf/:supplierId", requireAuth, async (req, res): Promise<voi
   let pdfBuffer: Buffer;
   try {
     pdfBuffer = await generatePoPdf({
+      brand: await resolveBrand(),
       poNo: poRow.po.internalPoNo,
       poDate: poRow.po.createdAt.toISOString(),
       supplierName: supplierRow.name,
       contactPerson: supplierRow.contactPerson,
       receiverName: poRow.po.receiverName,
       receiverPhone: poRow.po.receiverPhone,
-      employeeName: poRow.employeeName ?? "Cortoba Supplies",
+      employeeName: poRow.employeeName ?? (await resolveBrand()).nameAr,
       employeePhone: poRow.employeePhone ?? null,
       notes: poRow.po.notes,
       items: items.map((r) => ({

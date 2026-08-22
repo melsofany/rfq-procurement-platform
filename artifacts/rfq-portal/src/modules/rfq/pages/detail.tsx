@@ -153,7 +153,7 @@ async function exportToExcel(rfqNo: string, customerRfqNo: string, offersData: O
   const items = normalizeItems(offersData);
 
   const summaryRows: unknown[][] = [
-    ["Cortoba Supplies — قرطبة للتوريدات"],
+    ["RFQ Platform — منصة تسعير المشتريات"],
     ["تقرير مقارنة الأسعار — RFQ Price Comparison (VAT Inclusive)"],
     [`Internal RFQ: ${rfqNo}`, `Customer RFQ: ${customerRfqNo}`],
     [`Exported: ${new Date().toLocaleDateString("en-EG")}`, `VAT Rate: ${VAT_LABEL}`],
@@ -318,22 +318,6 @@ async function exportToPdf(
         const sl = (await r.json()) as Array<{ closeDate?: string | null }>;
         closeDate = sl?.find((e) => e.closeDate)?.closeDate ?? null;
       }
-    }
-  } catch {
-    /* skip */
-  }
-
-  // Fetch logo as data URL
-  let logoSrc = "";
-  try {
-    const r = await fetch("/logo.png");
-    if (r.ok) {
-      const blob = await r.blob();
-      logoSrc = await new Promise<string>((res) => {
-        const rd = new FileReader();
-        rd.onload = () => res(rd.result as string);
-        rd.readAsDataURL(blob);
-      });
     }
   } catch {
     /* skip */
@@ -594,11 +578,10 @@ async function exportToPdf(
 
 <div class="hdr">
   <div>
-    <div class="company">قرطبة للتوريدات</div>
-    <div class="company-en">Cortoba Supplies</div>
+    <div class="company">منصة تسعير المشتريات</div>
+    <div class="company-en">RFQ Platform</div>
     <div class="rtitle">تقرير مقارنة عروض الأسعار &mdash; RFQ Price Comparison Report</div>
   </div>
-  ${logoSrc ? `<img src="${logoSrc}" alt="">` : ""}
 </div>
 
 <div class="meta">
@@ -630,7 +613,7 @@ async function exportToPdf(
 
 ${supplierSummaryHtml}
 <div class="ftr">
-  قرطبة للتوريدات &nbsp;|&nbsp; INFO@CORTOBA-SUPPLIES.COM
+  منصة تسعير المشتريات &nbsp;|&nbsp; RFQ PLATFORM
   ${closeDate ? `&nbsp;|&nbsp; تاريخ الإغلاق: ${closeDate}` : ""}
   &nbsp;|&nbsp; ض.ق.م ${VAT_LABEL} &nbsp;|&nbsp; ${exportDate}
 </div>

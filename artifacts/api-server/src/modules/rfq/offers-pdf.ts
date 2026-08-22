@@ -2,10 +2,12 @@ import PDFDocument from "pdfkit";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { existsSync } from "fs";
+import type { BrandInfo } from "../../shared/branding";
 
 const VAT_RATE = 0.14;
 
 export interface OffersPdfOptions {
+  brand?: BrandInfo;
   rfqNo: string;
   customerRfqNo: string;
   exportDate: string;
@@ -69,6 +71,9 @@ function fmt(n: number): string {
 }
 
 export function generateOffersPdf(opts: OffersPdfOptions): Promise<Buffer> {
+  const brandNameAr = opts.brand?.nameAr ?? "منصة تسعير المشتريات";
+  const brandNameEn = opts.brand?.nameEn ?? "RFQ Platform";
+  const brandEmail = (opts.brand?.email ?? "info@rfq-platform.com").toUpperCase();
   return new Promise((resolve, reject) => {
     const hardTimeout = setTimeout(() => {
       reject(new Error("PDF generation timed out"));
@@ -128,17 +133,12 @@ export function generateOffersPdf(opts: OffersPdfOptions): Promise<Buffer> {
         .font(FONT)
         .fontSize(15)
         .fillColor(GOLD)
-        .text(
-          "\u0642\u0631\u0637\u0628\u0629 \u0644\u0644\u062a\u0648\u0631\u064a\u062f\u0627\u062a",
-          MARGIN + 14,
-          MARGIN + 8,
-          { lineBreak: false },
-        );
+        .text(brandNameAr, MARGIN + 14, MARGIN + 8, { lineBreak: false });
       doc
         .font(FONT)
         .fontSize(9)
         .fillColor("#aaccee")
-        .text("Cortoba Supplies", MARGIN + 14, MARGIN + 30, { lineBreak: false });
+        .text(brandNameEn, MARGIN + 14, MARGIN + 30, { lineBreak: false });
       doc
         .font(FONT)
         .fontSize(11)
@@ -794,7 +794,7 @@ export function generateOffersPdf(opts: OffersPdfOptions): Promise<Buffer> {
         .fontSize(7.5)
         .fillColor(GOLD)
         .text(
-          `\u0642\u0631\u0637\u0628\u0629 \u0644\u0644\u062a\u0648\u0631\u064a\u062f\u0627\u062a | INFO@CORTOBA-SUPPLIES.COM | ${opts.exportDate}${opts.closeDate ? " | \u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0625\u063a\u0644\u0627\u0642: " + opts.closeDate : ""} | \u062c\u0645\u064a\u0639 \u0627\u0644\u0642\u064a\u0645 \u0628\u0627\u0644\u062c\u0646\u064a\u0647 \u0627\u0644\u0645\u0635\u0631\u064a | \u0636.q.\u0645 14%`,
+          `${brandNameAr} | ${brandEmail} | ${opts.exportDate}${opts.closeDate ? " | \u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0625\u063a\u0644\u0627\u0642: " + opts.closeDate : ""} | \u062c\u0645\u064a\u0639 \u0627\u0644\u0642\u064a\u0645 \u0628\u0627\u0644\u062c\u0646\u064a\u0647 \u0627\u0644\u0645\u0635\u0631\u064a | \u0636.q.\u0645 14%`,
           MARGIN + 4,
           footerY + 2,
           { width: CONTENT_W - 8, align: "center", lineBreak: false },

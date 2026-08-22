@@ -142,14 +142,14 @@ export function generateSalesInvoicePdf(opts: SalesInvoicePdfOptions): Promise<B
       doc
         .fontSize(11)
         .fillColor("#c8a84b")
-        .text(rtl(opts.companyName || "قرطبة للتوريدات"), TITLE_X, 62, { width: TITLE_W, align: "center" });
+        .text(rtl(opts.companyName || "منصة تسعير المشتريات"), TITLE_X, 62, { width: TITLE_W, align: "center" });
 
       // Company + invoice meta block
       let y = HDR_H + 14;
       const LEFT_W = CW * 0.5;
       doc.fillColor(BLUE).font("Amiri").fontSize(10);
       const companyLines = [
-        rtl(opts.companyName || "قرطبة للتوريدات"),
+        rtl(opts.companyName || "منصة تسعير المشتريات"),
         opts.companyAddress ? rtl(opts.companyAddress) : null,
         opts.companyPhone ? `ت: ${opts.companyPhone}` : null,
         opts.companyTaxId ? `البطاقة الضريبية: ${opts.companyTaxId}` : null,
@@ -231,7 +231,7 @@ export function generateSalesInvoicePdf(opts: SalesInvoicePdfOptions): Promise<B
         doc.fillColor("#555").fontSize(8).text(rtl(opts.notes), M, y, { width: CW, align: "right" });
       }
       doc.rect(0, doc.page.height - 26, PAGE_W, 26).fill(BLUE);
-      doc.fillColor("#c8a84b").fontSize(8).text(rtl("هذه الفاتورة صادرة إلكترونياً من نظام قرطبة للتوريدات"), M, doc.page.height - 18, { width: CW, align: "center" });
+      doc.fillColor("#c8a84b").fontSize(8).text(rtl("هذه الفاتورة صادرة إلكترونياً من نظام " + (opts.companyName || "منصة تسعير المشتريات")), M, doc.page.height - 18, { width: CW, align: "center" });
 
       doc.end();
     } catch (e) {

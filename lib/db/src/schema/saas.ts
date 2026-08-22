@@ -13,6 +13,7 @@ export type TenantStatus = (typeof TENANT_STATUSES)[number];
 export const tenantsTable = pgTable("tenants", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  nameEn: text("name_en"),
   slug: text("slug").notNull().unique(),
   contactEmail: text("contact_email"),
   contactPhone: text("contact_phone"),

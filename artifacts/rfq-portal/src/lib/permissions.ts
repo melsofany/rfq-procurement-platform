@@ -172,7 +172,7 @@ export function resolvePermissions(
   role: string | undefined,
   permissions: PermissionMap,
 ): Set<string> {
-  if (role === "admin") return new Set(ALL_PERMISSION_KEYS);
+  if (role === "admin" || role === "superadmin") return new Set(ALL_PERMISSION_KEYS);
   const explicit = permissions && typeof permissions === "object" ? permissions : null;
   const keys =
     explicit && Object.keys(explicit).length
@@ -204,7 +204,7 @@ export function canEditCustomerDoc(
   permissions: PermissionMap,
   editKey: string,
 ): boolean {
-  if (role === "admin") return true;
+  if (role === "admin" || role === "superadmin") return true;
   return resolvePermissions(role, permissions).has(editKey);
 }
 
@@ -214,7 +214,7 @@ export function canAccessPath(
   permissions: PermissionMap,
   path: string,
 ): boolean {
-  if (role === "admin") return true;
+  if (role === "admin" || role === "superadmin") return true;
   // Match the catalog page whose href is a prefix of the path.
   const node = PERMISSION_CATALOG.find(
     (n) => n.href && (path === n.href || path.startsWith(n.href + "/")),
@@ -241,6 +241,7 @@ export function firstAccessiblePath(
   permissions: PermissionMap,
 ): string | null {
   if (role === "admin") return "/dashboard";
+  if (role === "superadmin") return "/admin";
   const granted = resolvePermissions(role, permissions);
   for (const node of PERMISSION_CATALOG) {
     if (node.href && granted.has(node.key)) return node.href;

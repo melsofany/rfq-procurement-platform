@@ -2,10 +2,12 @@ import PDFDocument from "pdfkit";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { existsSync } from "fs";
+import type { BrandInfo } from "../../shared/branding";
 
 const VAT_RATE = 0.14; // Egyptian standard VAT 14%
 
 export interface PoPdfOptions {
+  brand?: BrandInfo;
   poNo: string;
   poDate?: string | null;
   supplierName: string;
@@ -78,6 +80,11 @@ export function generatePoPdf(opts: PoPdfOptions): Promise<Buffer> {
       const fontPath = getFontPath();
       const logoPath = getLogoPath();
       const hasLogo = existsSync(logoPath);
+      const brandNameAr = opts.brand?.nameAr ?? "منصة تسعير المشتريات";
+      const brandNameEn = opts.brand?.nameEn ?? "RFQ PLATFORM";
+      const brandEmail = (opts.brand?.email ?? "info@rfq-platform.com").toUpperCase();
+      const brandAddress = opts.brand?.address ?? null;
+      const brandLetter = (brandNameAr.trim()[0] ?? "ت").trim();
 
       const doc = new PDFDocument({
         size: "A4",
@@ -153,46 +160,39 @@ export function generatePoPdf(opts: PoPdfOptions): Promise<Buffer> {
           .font("Amiri")
           .fontSize(22)
           .fillColor(BLUE)
-          .text("ق", LOGO_X, LOGO_Y + LOGO_SIZE / 2 - 14, {
+          .text(brandLetter, LOGO_X, LOGO_Y + LOGO_SIZE / 2 - 14, {
             width: LOGO_SIZE,
             align: "center",
             lineBreak: false,
           });
       }
 
-      doc.font("Amiri").fontSize(11).fillColor(GOLD).text(rtl("قرطبة للتوريدات"), CO_TEXT_X, 12, {
+      doc.font("Amiri").fontSize(11).fillColor(GOLD).text(rtl(brandNameAr), CO_TEXT_X, 12, {
         width: CO_TEXT_W,
         align: "left",
         lineBreak: false,
       });
-      doc.font("Amiri").fontSize(8).fillColor("#c0d8f0").text("CORTOBA SUPPLIES", CO_TEXT_X, 30, {
+      doc.font("Amiri").fontSize(8).fillColor("#c0d8f0").text(brandNameEn, CO_TEXT_X, 30, {
         width: CO_TEXT_W,
         align: "left",
         lineBreak: false,
       });
+      if (brandAddress) {
+        doc
+          .font("Amiri")
+          .fontSize(7)
+          .fillColor("#8aaec8")
+          .text(rtl(brandAddress), CO_TEXT_X, 46, {
+            width: CO_TEXT_W,
+            align: "left",
+            lineBreak: false,
+          });
+      }
       doc
         .font("Amiri")
         .fontSize(7)
         .fillColor("#8aaec8")
-        .text(rtl("ش.الإسكندرية - برج نجمة مطروح، الدور الرابع"), CO_TEXT_X, 46, {
-          width: CO_TEXT_W,
-          align: "left",
-          lineBreak: false,
-        });
-      doc
-        .font("Amiri")
-        .fontSize(7)
-        .fillColor("#8aaec8")
-        .text(rtl("مرسي مطروح  |  ت: 432-972-587"), CO_TEXT_X, 59, {
-          width: CO_TEXT_W,
-          align: "left",
-          lineBreak: false,
-        });
-      doc
-        .font("Amiri")
-        .fontSize(7)
-        .fillColor("#8aaec8")
-        .text("INFO@CORTOBA-SUPPLIES.COM", CO_TEXT_X, 72, {
+        .text(brandEmail, CO_TEXT_X, brandAddress ? 72 : 46, {
           width: CO_TEXT_W,
           align: "left",
           lineBreak: false,
@@ -538,7 +538,7 @@ export function generatePoPdf(opts: PoPdfOptions): Promise<Buffer> {
       const contactParts = [
         opts.employeeName ? rtl(opts.employeeName) : null,
         opts.employeePhone ?? null,
-        "INFO@CORTOBA-SUPPLIES.COM",
+        brandEmail,
       ].filter(Boolean);
 
       doc
@@ -551,23 +551,19 @@ export function generatePoPdf(opts: PoPdfOptions): Promise<Buffer> {
           lineBreak: false,
         });
 
-      doc
-        .font("Amiri")
-        .fontSize(7.5)
-        .fillColor("#999999")
-        .text(
-          rtl("ش.الإسكندرية - برج نجمة مطروح، الدور الرابع - مرسي مطروح") +
-            "   |   ت: 432-972-587   |   س-ت: 21618",
-          M,
-          FY + 24,
-          { width: CW, align: "center", lineBreak: false },
-        );
+      if (brandAddress) {
+        doc
+          .font("Amiri")
+          .fontSize(7.5)
+          .fillColor("#999999")
+          .text(rtl(brandAddress), M, FY + 24, { width: CW, align: "center", lineBreak: false });
+      }
 
       doc
         .font("Amiri")
         .fontSize(7)
         .fillColor("#aaaaaa")
-        .text(rtl("قرطبة للتوريدات") + " — CORTOBA SUPPLIES", M, FY + 38, {
+        .text(rtl(brandNameAr) + " — " + brandNameEn, M, FY + 38, {
           width: CW,
           align: "center",
           lineBreak: false,

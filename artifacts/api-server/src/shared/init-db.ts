@@ -13,6 +13,7 @@ export async function initDb(): Promise<void> {
       CREATE TABLE IF NOT EXISTS tenants (
         id             SERIAL PRIMARY KEY,
         name           TEXT NOT NULL,
+        name_en        TEXT,
         slug           TEXT NOT NULL UNIQUE,
         contact_email  TEXT,
         contact_phone  TEXT,
@@ -21,6 +22,7 @@ export async function initDb(): Promise<void> {
         created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS name_en TEXT;
       CREATE TABLE IF NOT EXISTS subscription_plans (
         id            SERIAL PRIMARY KEY,
         code          TEXT NOT NULL UNIQUE,
@@ -99,7 +101,15 @@ export async function initDb(): Promise<void> {
         "whatsapp_chats", "audit_log", "erp_integrations",
       ];
       for (const tbl of ownershipTables) {
-        await client.query(`UPDATE "${tbl}" SET tenant_id = $1 WHERE tenant_id IS NULL`, [defaultTenantId]);
+        if (tbl === "employees") {
+          // Superadmin stays tenant-less (platform scope, sees all tenants).
+          await client.query(
+            `UPDATE employees SET tenant_id = $1 WHERE tenant_id IS NULL AND role <> 'superadmin'`,
+            [defaultTenantId],
+          );
+        } else {
+          await client.query(`UPDATE "${tbl}" SET tenant_id = $1 WHERE tenant_id IS NULL`, [defaultTenantId]);
+        }
       }
       logger.info({ defaultTenantId }, "initDb: default tenant backfilled");
     }
@@ -949,6 +959,12 @@ export async function initDb(): Promise<void> {
     const isEmpty = parseInt(existingCount.rows[0].count, 10) === 0;
     if (isEmpty) {
       const seedAccounts = [
+        {
+          name: "Platform Admin",
+          email: (process.env.SEED_SUPERADMIN_EMAIL ?? "superadmin@rfq-platform.local").toLowerCase(),
+          pass: process.env.SEED_SUPERADMIN_PASS,
+          role: "superadmin",
+        },
         {
           name: "Admin",
           email: "admin@rfq-platform.local",

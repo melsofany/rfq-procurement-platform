@@ -3,7 +3,7 @@ export type Lang = "en" | "ar";
 const translations: Record<Lang, Record<string, string>> = {
   en: {
     // Layout / nav
-    "app.subtitle": "Cortoba Supplies",
+    "app.subtitle": "RFQ Platform",
     "nav.dashboard": "Dashboard",
     "nav.rfq": "RFQ Management",
     "nav.suppliers": "Suppliers",
@@ -15,6 +15,10 @@ const translations: Record<Lang, Record<string, string>> = {
     "nav.employees": "Employees",
     "nav.auditLog": "Audit Log",
     "nav.integrations": "ERP Integrations",
+    "nav.whatsappSettings": "WhatsApp Settings",
+    "nav.platform": "Platform",
+    "nav.tenants": "Companies",
+    "nav.plans": "Subscription Plans",
     "nav.admin": "Admin",
     "nav.customers": "Customers",
     "nav.customerRfq": "Customer RFQs",
@@ -195,15 +199,16 @@ const translations: Record<Lang, Record<string, string>> = {
     "customerPo.new": "New customer PO",
 
     // Employees role display in dashboard/auth context
+    "role.superadmin": "Platform Admin",
     "role.admin": "Admin",
     "role.manager": "Manager",
     "role.purchasing": "Purchasing",
     "role.data_entry": "Data Entry",
 
     // Login page
-    "login.title": "Cortoba Supplies",
-    "login.subtitle": "قرطبة للتوريدات",
-    "login.address": "Alex. St. — Matrouh Star Tower, 4th Floor — Marsa Matrouh",
+    "login.title": "RFQ Platform",
+    "login.subtitle": "منصة إدارة طلبات التسعير",
+    "login.address": "",
     "login.signIn": "Sign in to your account",
     "login.email": "Email",
     "login.password": "Password",
@@ -328,7 +333,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "pricing.loading": "Loading quotation data...",
     "pricing.invalidLink": "Invalid Link",
     "pricing.invalidLinkDesc":
-      "This link is invalid or has expired. Please contact Cortoba Supplies for a new link.",
+      "This link is invalid or has expired. Please contact the requesting company for a new link.",
     "pricing.expired": "Quotation Period Ended",
     "pricing.expiredDesc": "The closing date for RFQ",
     "pricing.expiredDesc2": "has passed. No new offers can be submitted.",
@@ -380,7 +385,7 @@ const translations: Record<Lang, Record<string, string>> = {
 
   ar: {
     // Layout / nav
-    "app.subtitle": "قرطبة للتوريدات",
+    "app.subtitle": "منصة تسعير المشتريات",
     "nav.dashboard": "لوحة التحكم",
     "nav.rfq": "إدارة طلبات العروض",
     "nav.suppliers": "الموردون",
@@ -392,6 +397,10 @@ const translations: Record<Lang, Record<string, string>> = {
     "nav.employees": "الموظفون",
     "nav.auditLog": "سجل المراجعة",
     "nav.integrations": "تكاملات ERP",
+    "nav.whatsappSettings": "إعدادات واتساب",
+    "nav.platform": "إدارة المنصة",
+    "nav.tenants": "الشركات المشتركة",
+    "nav.plans": "خطط الاشتراك",
     "nav.admin": "المدير",
     "nav.customers": "العملاء",
     "nav.customerRfq": "طلبات تسعير العملاء",
@@ -571,15 +580,16 @@ const translations: Record<Lang, Record<string, string>> = {
     "customerPo.new": "أمر شراء عميل جديد",
 
     // Role display
+    "role.superadmin": "مسؤول المنصة",
     "role.admin": "مدير النظام",
     "role.manager": "مدير",
     "role.purchasing": "مشتريات",
     "role.data_entry": "مدخل بيانات",
 
     // Login page
-    "login.title": "Cortoba Supplies",
-    "login.subtitle": "قرطبة للتوريدات",
-    "login.address": "ش.الاسكندرية - برج نجمة مطروح الدور الرابع - مرسي مطروح",
+    "login.title": "RFQ Platform",
+    "login.subtitle": "منصة إدارة طلبات التسعير",
+    "login.address": "",
     "login.signIn": "تسجيل الدخول إلى حسابك",
     "login.email": "البريد الإلكتروني",
     "login.password": "كلمة المرور",
@@ -704,7 +714,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "pricing.loading": "جاري تحميل بيانات طلب العرض...",
     "pricing.invalidLink": "الرابط غير صالح",
     "pricing.invalidLinkDesc":
-      "هذا الرابط غير صالح أو انتهت صلاحيته. يرجى التواصل مع قرطبة للتوريدات للحصول على رابط جديد.",
+      "هذا الرابط غير صالح أو انتهت صلاحيته. يرجى التواصل مع الشركة الطالبة للحصول على رابط جديد.",
     "pricing.expired": "انتهى وقت تقديم العروض",
     "pricing.expiredDesc": "لقد انتهى تاريخ الإغلاق لطلب العرض",
     "pricing.expiredDesc2": "لم يعد بالإمكان تقديم عروض جديدة.",
