@@ -24,6 +24,7 @@ import communicationsModule from "../modules/communications/index";
 import integrationsModule from "../modules/integrations/index";
 import chatwootModule from "../modules/chatwoot/index";
 import backupModule from "../modules/backup/index";
+import supportModule from "../modules/support/index";
 import platformModule from "../modules/platform/index";
 import settingsModule from "../modules/settings/index";
 
@@ -46,6 +47,10 @@ router.use(communicationsModule); // whatsapp (legacy — kept read-only as back
 router.use(chatwootModule); // chatwoot SSO bridge for the /whatsapp inbox
 router.use(integrationsModule); // ERP integrations (Odoo · SAP · Oracle · Google Sheets)
 router.use(backupModule); // daily DB backup → Google Drive
+// Support tickets mount BEFORE the platform module: platform's router-level
+// "/platform" superadmin guard would otherwise intercept /platform/tickets
+// and 403 the "support" role.
+router.use(supportModule); // support tickets (tenant /support + platform /platform/tickets)
 router.use(platformModule); // SaaS platform: tenants · plans · subscriptions · tenant whatsapp
 router.use(settingsModule); // tenant self-service settings (whatsapp)
 

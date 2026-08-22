@@ -15,4 +15,5 @@ export const EmployeeUpdateRole = {
   manager: 'manager',
   purchasing: 'purchasing',
   data_entry: 'data_entry',
+  support: 'support',
 } as const;

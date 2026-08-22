@@ -60,6 +60,8 @@ import AdminDashboardPage from "@/modules/admin/pages/index";
 import AdminTenantsPage from "@/modules/admin/pages/tenants";
 import AdminTenantDetailPage from "@/modules/admin/pages/tenant-detail";
 import AdminPlansPage from "@/modules/admin/pages/plans";
+import AdminTicketsPage from "@/modules/admin/pages/tickets";
+import SupportPage from "@/modules/support/pages/index";
 
 // ── Module: Settings — إعدادات الشركة ─────────────────────────────────────
 import SettingsPage from "@/modules/settings/pages/index";
@@ -244,6 +246,12 @@ function Router() {
       </Route>
 
       {/* ── Module: Settings ───────────────────────────────────────────── */}
+      <Route path="/admin/tickets">
+        <ProtectedRoute component={AdminTicketsPage} />
+      </Route>
+      <Route path="/support">
+        <ProtectedRoute component={SupportPage} />
+      </Route>
       <Route path="/settings">
         <ProtectedRoute component={SettingsPage} />
       </Route>

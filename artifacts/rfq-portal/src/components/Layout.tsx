@@ -20,6 +20,7 @@ import {
   Calculator,
   Settings,
   Building2,
+  LifeBuoy,
   Building,
   CreditCard,
 } from "lucide-react";
@@ -58,6 +59,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/integrations", label: t("nav.integrations"), icon: Plug },
   ];
 
+  // Company-side support tickets — every company employee may raise/track tickets.
+  const supportNavItems = [{ href: "/support", label: t("nav.support"), icon: LifeBuoy }];
+  const visibleSupport = role === "superadmin" || role === "support" ? [] : supportNavItems;
+
   // Company settings — admin/manager of the tenant (and superadmin).
   const settingsNavItems = [
     { href: "/settings", label: t("nav.companySettings"), icon: Settings },
@@ -70,12 +75,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/admin", label: t("nav.platform"), icon: Building2 },
     { href: "/admin/tenants", label: t("nav.tenants"), icon: Building },
     { href: "/admin/plans", label: t("nav.plans"), icon: CreditCard },
+    { href: "/admin/tickets", label: t("nav.tickets"), icon: LifeBuoy },
   ];
-  const visiblePlatform = role === "superadmin" ? platformNavItems : [];
+  const visiblePlatform =
+    role === "superadmin" ? platformNavItems : role === "support" ? platformNavItems.filter((i) => i.href === "/admin/tickets") : [];
 
   // Filter both groups by the employee's effective permissions.
   const visibleMain = mainNavItems.filter((i) => canAccessPath(role, perms, i.href));
   const visibleAdmin = adminNavItems.filter((i) => canAccessPath(role, perms, i.href));
+  const visibleSupportFiltered = visibleSupport.filter((i) => canAccessPath(role, perms, i.href));
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -192,14 +200,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
 
-          {(visibleAdmin.length > 0 || visibleSettings.length > 0) && (
+          {(visibleAdmin.length > 0 || visibleSettings.length > 0 || visibleSupportFiltered.length > 0) && (
             <>
               {(sidebarOpen || mobile) && (
                 <p className="text-sidebar-foreground/30 text-xs px-2 pt-3 pb-1 uppercase tracking-wider">
                   {t("nav.admin")}
                 </p>
               )}
-              {[...visibleAdmin, ...visibleSettings].map((item) => {
+              {[...visibleAdmin, ...visibleSettings, ...visibleSupportFiltered].map((item) => {
                 const active = location === item.href || location.startsWith(item.href + "/");
                 return (
                   <Link key={item.href} href={item.href}>

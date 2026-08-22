@@ -23,6 +23,7 @@ export const EmployeeRole = {
   manager: 'manager',
   purchasing: 'purchasing',
   data_entry: 'data_entry',
+  support: 'support',
 } as const;
 
 /**
@@ -61,6 +62,7 @@ export const EmployeeInputRole = {
   manager: 'manager',
   purchasing: 'purchasing',
   data_entry: 'data_entry',
+  support: 'support',
 } as const;
 
 /**
@@ -91,6 +93,7 @@ export const EmployeeUpdateRole = {
   manager: 'manager',
   purchasing: 'purchasing',
   data_entry: 'data_entry',
+  support: 'support',
 } as const;
 
 /**

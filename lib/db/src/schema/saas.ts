@@ -113,6 +113,51 @@ export const insertTenantWhatsappSettingsSchema = createInsertSchema(tenantWhats
 export type InsertTenantWhatsappSettings = z.infer<typeof insertTenantWhatsappSettingsSchema>;
 export type TenantWhatsappSettings = typeof tenantWhatsappSettingsTable.$inferSelect;
 
+// ─── Support tickets (تذاكر الدعم الفني) ──────────────────────────────────
+// A tenant company raises a ticket from its own /support page; the platform
+// superadmin or a "support" employee replies/resolves from /admin/tickets.
+export const TICKET_STATUSES = ["open", "in_progress", "resolved", "closed"] as const;
+export type TicketStatus = (typeof TICKET_STATUSES)[number];
+export const TICKET_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+export type TicketPriority = (typeof TICKET_PRIORITIES)[number];
+
+export const supportTicketsTable = pgTable("support_tickets", {
+  id: serial("id").primaryKey(),
+  ticketNo: text("ticket_no").notNull().unique(),
+  tenantId: integer("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id, { onDelete: "cascade" }),
+  tenantName: text("tenant_name"),
+  subject: text("subject").notNull(),
+  category: text("category"),
+  priority: text("priority").notNull().default("normal").$type<TicketPriority>(),
+  status: text("status").notNull().default("open").$type<TicketStatus>(),
+  createdById: integer("created_by_id"),
+  createdByName: text("created_by_name"),
+  assignedToName: text("assigned_to_name"),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const supportTicketMessagesTable = pgTable("support_ticket_messages", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id")
+    .notNull()
+    .references(() => supportTicketsTable.id, { onDelete: "cascade" }),
+  senderId: integer("sender_id"),
+  senderName: text("sender_name"),
+  senderKind: text("sender_kind").notNull().default("tenant"), // tenant | support
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type SupportTicket = typeof supportTicketsTable.$inferSelect;
+export type SupportTicketMessage = typeof supportTicketMessagesTable.$inferSelect;
+
 // Sentinel: the seeded platform-default tenant that pre-existing data attaches
 // to (created idempotently on startup). Employees/rows with a NULL tenant_id
 // are treated as the default tenant for backwards compatibility.

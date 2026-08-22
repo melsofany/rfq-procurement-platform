@@ -64,6 +64,32 @@ export async function initDb(): Promise<void> {
       );
       CREATE UNIQUE INDEX IF NOT EXISTS tenant_whatsapp_settings_tenant_id_uniq
         ON tenant_whatsapp_settings (tenant_id);
+      CREATE TABLE IF NOT EXISTS support_tickets (
+        id               SERIAL PRIMARY KEY,
+        ticket_no        TEXT NOT NULL UNIQUE,
+        tenant_id        INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        tenant_name      TEXT,
+        subject          TEXT NOT NULL,
+        category         TEXT,
+        priority         TEXT NOT NULL DEFAULT 'normal',
+        status           TEXT NOT NULL DEFAULT 'open',
+        created_by_id    INTEGER,
+        created_by_name  TEXT,
+        assigned_to_name TEXT,
+        resolved_at      TIMESTAMPTZ,
+        created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS support_ticket_messages (
+        id          SERIAL PRIMARY KEY,
+        ticket_id   INTEGER NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
+        sender_id   INTEGER,
+        sender_name TEXT,
+        sender_kind TEXT NOT NULL DEFAULT 'tenant',
+        body        TEXT NOT NULL,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS support_tickets_tenant_id_idx ON support_tickets (tenant_id);
     `);
     // Ownership columns for tenant isolation (NULL → backfilled to the
     // platform default tenant below, so pre-SaaS rows stay visible).
@@ -104,7 +130,7 @@ export async function initDb(): Promise<void> {
         if (tbl === "employees") {
           // Superadmin stays tenant-less (platform scope, sees all tenants).
           await client.query(
-            `UPDATE employees SET tenant_id = $1 WHERE tenant_id IS NULL AND role <> 'superadmin'`,
+            `UPDATE employees SET tenant_id = $1 WHERE tenant_id IS NULL AND role NOT IN ('superadmin','support')`,
             [defaultTenantId],
           );
         } else {

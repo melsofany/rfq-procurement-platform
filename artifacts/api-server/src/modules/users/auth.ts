@@ -243,9 +243,9 @@ router.post("/employees", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Missing required fields" });
     return;
   }
-  // Only a superadmin may mint another superadmin (platform-level role).
-  if (role === "superadmin" && req.session.role !== "superadmin") {
-    res.status(403).json({ error: "Only a superadmin may grant the superadmin role" });
+  // superadmin + support are platform-level roles — only a superadmin mints them.
+  if ((role === "superadmin" || role === "support") && req.session.role !== "superadmin") {
+    res.status(403).json({ error: "Only a superadmin may grant a platform-level role" });
     return;
   }
 
@@ -313,8 +313,8 @@ router.patch("/employees/:id", async (req, res): Promise<void> => {
     string,
     unknown
   >;
-  if (role === "superadmin" && req.session.role !== "superadmin") {
-    res.status(403).json({ error: "Only a superadmin may grant the superadmin role" });
+  if ((role === "superadmin" || role === "support") && req.session.role !== "superadmin") {
+    res.status(403).json({ error: "Only a superadmin may grant a platform-level role" });
     return;
   }
 

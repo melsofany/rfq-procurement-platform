@@ -1697,7 +1697,7 @@ components:
           type: string
         role:
           type: string
-          enum: [superadmin, admin, manager, purchasing, data_entry]
+          enum: [superadmin, admin, manager, purchasing, data_entry, support]
         phone:
           type: ["string", "null"]
         isActive:
@@ -1722,7 +1722,7 @@ components:
           type: string
         role:
           type: string
-          enum: [superadmin, admin, manager, purchasing, data_entry]
+          enum: [superadmin, admin, manager, purchasing, data_entry, support]
         phone:
           type: string
         permissions:
@@ -1740,7 +1740,7 @@ components:
           type: string
         role:
           type: string
-          enum: [superadmin, admin, manager, purchasing, data_entry]
+          enum: [superadmin, admin, manager, purchasing, data_entry, support]
         phone:
           type: string
         isActive:

@@ -10,7 +10,7 @@
  * (ROLE_DEFAULTS) is used. `admin` always has full access.
  */
 
-export type Role = "admin" | "manager" | "purchasing" | "data_entry";
+export type Role = "admin" | "manager" | "purchasing" | "data_entry" | "superadmin" | "support";
 
 /** A single permission node (page, or a tab within a page). */
 export interface PermissionNode {
@@ -138,7 +138,10 @@ export const PAGE_KEYS: string[] = PERMISSION_CATALOG.map((n) => n.key);
  * pre-existing ability to edit drafts — an admin can still revoke them per
  * employee via the permissions editor.
  */
-export const ROLE_DEFAULTS: Record<Exclude<Role, "admin">, string[]> = {
+export const ROLE_DEFAULTS: Record<Exclude<Role, "admin" | "superadmin">, string[]> = {
+  // Platform customer-service employee: no tenant pages — only /admin/tickets
+  // (which is not a catalog page, so it stays reachable).
+  support: [],
   manager: [...PAGE_KEYS, "customer-rfq:edit", "customer-po:edit"],
   purchasing: [
     ...PAGE_KEYS.filter((k) => k !== "employees" && k !== "audit" && k !== "integrations"),
@@ -242,6 +245,7 @@ export function firstAccessiblePath(
 ): string | null {
   if (role === "admin") return "/dashboard";
   if (role === "superadmin") return "/admin";
+  if (role === "support") return "/admin/tickets";
   const granted = resolvePermissions(role, permissions);
   for (const node of PERMISSION_CATALOG) {
     if (node.href && granted.has(node.key)) return node.href;

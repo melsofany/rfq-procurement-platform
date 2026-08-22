@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 
 const ROLES = ["admin", "manager", "purchasing", "data_entry"];
+// Platform-level role (customer service) — selectable only by a superadmin.
+const PLATFORM_ROLES = ["support"];
 
 type EmpForm = {
   name: string;
@@ -294,7 +296,7 @@ export default function EmployeesPage() {
                       className="w-full h-9 px-3 rounded border border-input bg-background text-sm text-foreground"
                       required
                     >
-                      {ROLES.map((r) => (
+                      {(me?.role === "superadmin" ? [...ROLES, ...PLATFORM_ROLES] : ROLES).map((r) => (
                         <option key={r} value={r}>
                           {t(`employees.role.${r}`)}
                         </option>
@@ -400,7 +402,7 @@ export default function EmployeesPage() {
                         className="w-full h-9 px-3 rounded border border-input bg-background text-sm text-foreground"
                         required
                       >
-                        {ROLES.map((r) => (
+                        {(me?.role === "superadmin" ? [...ROLES, ...PLATFORM_ROLES] : ROLES).map((r) => (
                           <option key={r} value={r}>
                             {t(`employees.role.${r}`)}
                           </option>
