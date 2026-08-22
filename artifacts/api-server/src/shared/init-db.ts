@@ -64,6 +64,8 @@ export async function initDb(): Promise<void> {
       );
       CREATE UNIQUE INDEX IF NOT EXISTS tenant_whatsapp_settings_tenant_id_uniq
         ON tenant_whatsapp_settings (tenant_id);
+    `);
+    await client.query(`
       CREATE TABLE IF NOT EXISTS support_tickets (
         id               SERIAL PRIMARY KEY,
         ticket_no        TEXT NOT NULL UNIQUE,
