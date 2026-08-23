@@ -101,6 +101,24 @@ router.post("/auth/login", loginIpLimiter, loginAccountLimiter, async (req, res)
     return;
   }
 
+  // Realm isolation: the customer portal and the admin console are separate
+  // apps. Platform staff (superadmin/support) may ONLY sign in from the admin
+  // console; tenant users may ONLY sign in from the customer portal. Requests
+  // without the x-app-realm header (same-origin SPA, curl, webhooks) are
+  // unrestricted for backwards compatibility.
+  const realm = req.get("x-app-realm");
+  const isPlatformStaff = employee.role === "superadmin" || employee.role === "support";
+  if (realm === "portal" && isPlatformStaff) {
+    auditLogin(req, "auth.login_failed", employee.id, `Realm-blocked login for ${email} (platform staff on customer portal)`);
+    res.status(403).json({ error: "حسابات إدارة المنصة تدخل من لوحة الإدارة المخصصة فقط" });
+    return;
+  }
+  if (realm === "admin" && !isPlatformStaff) {
+    auditLogin(req, "auth.login_failed", employee.id, `Realm-blocked login for ${email} (tenant user on admin console)`);
+    res.status(403).json({ error: "هذه البوابة مخصصة لإدارة المنصة — استخدم بوابة شركتك لتسجيل الدخول" });
+    return;
+  }
+
   // Block login for suspended/pending tenants (superadmin has no tenant).
   if (employee.tenantId != null) {
     const [tenantRow] = await db

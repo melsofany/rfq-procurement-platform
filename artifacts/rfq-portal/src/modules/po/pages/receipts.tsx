@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Search, PackageCheck, Truck, Send, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { sseUrl } from "@/lib/realm";
 
 // PO line charge types — mirrored from lib/db/src/schema/expenses.ts.
 const PO_CHARGE_TYPES: string[] = [
@@ -162,7 +163,7 @@ export default function GoodsReceiptPage() {
   // broadcasts a `receipt_recorded` SSE event. Reload the expanded PO's items +
   // receipts + the per-PO progress so the operator sees changes instantly.
   useEffect(() => {
-    const es = new EventSource("/api/whatsapp/events", { withCredentials: true });
+    const es = new EventSource(sseUrl("/api/whatsapp/events"), { withCredentials: true });
     es.onmessage = (ev) => {
       try {
         const payload = JSON.parse(ev.data);

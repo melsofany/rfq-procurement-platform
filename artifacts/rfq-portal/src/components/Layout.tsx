@@ -27,6 +27,7 @@ import {
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { canAccessPath } from "@/lib/permissions";
+import { APP_REALM } from "@/lib/realm";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { employee, logout } = useAuth();
@@ -80,10 +81,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const visiblePlatform =
     role === "superadmin" ? platformNavItems : role === "support" ? platformNavItems.filter((i) => i.href === "/admin/tickets") : [];
 
-  // Filter both groups by the employee's effective permissions.
-  const visibleMain = mainNavItems.filter((i) => canAccessPath(role, perms, i.href));
-  const visibleAdmin = adminNavItems.filter((i) => canAccessPath(role, perms, i.href));
-  const visibleSupportFiltered = visibleSupport.filter((i) => canAccessPath(role, perms, i.href));
+  // Filter both groups by the employee's effective permissions. Realm
+  // isolation: the admin console shows ONLY platform-management pages; the
+  // customer portal never shows them.
+  const isAdminRealm = APP_REALM === "admin";
+  const visibleMain = isAdminRealm ? [] : mainNavItems.filter((i) => canAccessPath(role, perms, i.href));
+  const visibleAdmin = isAdminRealm ? [] : adminNavItems.filter((i) => canAccessPath(role, perms, i.href));
+  const visibleSupportFiltered = isAdminRealm
+    ? []
+    : visibleSupport.filter((i) => canAccessPath(role, perms, i.href));
+  const visibleSettingsRealm = isAdminRealm ? [] : visibleSettings;
+  const visiblePlatformRealm = isAdminRealm ? visiblePlatform : [];
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -200,14 +208,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
 
-          {(visibleAdmin.length > 0 || visibleSettings.length > 0 || visibleSupportFiltered.length > 0) && (
+          {(visibleAdmin.length > 0 || visibleSettingsRealm.length > 0 || visibleSupportFiltered.length > 0) && (
             <>
               {(sidebarOpen || mobile) && (
                 <p className="text-sidebar-foreground/30 text-xs px-2 pt-3 pb-1 uppercase tracking-wider">
                   {t("nav.admin")}
                 </p>
               )}
-              {[...visibleAdmin, ...visibleSettings, ...visibleSupportFiltered].map((item) => {
+              {[...visibleAdmin, ...visibleSettingsRealm, ...visibleSupportFiltered].map((item) => {
                 const active = location === item.href || location.startsWith(item.href + "/");
                 return (
                   <Link key={item.href} href={item.href}>
@@ -228,14 +236,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </>
           )}
 
-          {visiblePlatform.length > 0 && (
+          {visiblePlatformRealm.length > 0 && (
             <>
               {(sidebarOpen || mobile) && (
                 <p className="text-sidebar-foreground/30 text-xs px-2 pt-3 pb-1 uppercase tracking-wider">
                   {t("nav.platform")}
                 </p>
               )}
-              {visiblePlatform.map((item) => {
+              {visiblePlatformRealm.map((item) => {
                 const active = location === item.href || location.startsWith(item.href + "/");
                 return (
                   <Link key={item.href} href={item.href}>

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { canAccessPath, firstAccessiblePath } from "@/lib/permissions";
+import { APP_REALM } from "@/lib/realm";
 
 // ── Shared pages (no module home) ─────────────────────────────────────────
 import NotFound from "@/pages/not-found";
@@ -91,6 +92,10 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
     );
   }
   if (!employee) return <Redirect to="/login" />;
+  // Realm isolation: the admin console only serves /admin/* pages; the
+  // customer portal never serves them.
+  if (APP_REALM === "admin" && !location.startsWith("/admin")) return <Redirect to="/admin" />;
+  if (APP_REALM === "portal" && location.startsWith("/admin")) return <Redirect to="/" />;
   // Route-level permission guard: if the employee lacks the page permission,
   // bounce them to the first page they CAN access (or the no-access screen if
   // none) instead of rendering the page. Avoids an infinite redirect loop when
@@ -119,8 +124,11 @@ function Router() {
       {/* Supplier token-based pricing page — no auth required */}
       <Route path="/q/:token" component={PricingPage} />
 
-      {/* Public company self-signup — no auth required */}
-      <Route path="/signup" component={SignupPage} />
+      {/* Public company self-signup — customer portal only, never exposed on
+          the admin console */}
+      <Route path="/signup">
+        {APP_REALM === "admin" ? <Redirect to="/login" /> : <SignupPage />}
+      </Route>
 
       <Route path="/">
         {!isLoading && employee ? (
@@ -266,7 +274,9 @@ function Router() {
         }}
       </Route>
 
-      <Route component={NotFound} />
+      <Route>
+        {APP_REALM === "admin" ? <Redirect to="/admin" /> : <NotFound />}
+      </Route>
     </Switch>
   );
 }

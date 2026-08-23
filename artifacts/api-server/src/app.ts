@@ -9,6 +9,7 @@ import { existsSync } from "fs";
 import { getPool } from "@workspace/db";
 import router from "./routes";
 import { tenantContext } from "./middlewares/tenant-context";
+import { bearerSession, registerSessionStore } from "./middlewares/bearer-session";
 import { logger } from "./shared/logger";
 
 const app: Express = express();
@@ -83,6 +84,7 @@ if (process.env.DATABASE_URL) {
 } else {
   logger.warn("DATABASE_URL not set — using in-memory sessions (lost on restart)");
 }
+registerSessionStore(sessionStore);
 
 app.use(
   session({
@@ -100,6 +102,10 @@ app.use(
     },
   }),
 );
+
+// Cross-origin frontends (portal/admin static sites) authenticate with the
+// session id as a bearer token instead of the blocked third-party cookie.
+app.use(bearerSession);
 
 // Capture the raw request body for routes that need to verify Meta's
 // X-Hub-Signature-256 webhook signature (see modules/communications/routes.ts).

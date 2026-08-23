@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLogin, getGetMeQueryKey } from "@workspace/api-client-react";
+import { APP_REALM, setSessionToken } from "@/lib/realm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,10 @@ export default function LoginPage() {
   const loginMutation = useLogin({
     mutation: {
       onSuccess: (data) => {
+        // Cross-origin deployments authenticate with the session id as a
+        // bearer token (third-party cookies are blocked), so persist it.
+        const token = (data as { token?: string } | undefined)?.token ?? null;
+        if (token) setSessionToken(token);
         queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
         // Land on the first page the employee is permitted to view (instead of
         // always /dashboard, which blanks for users without that permission).
@@ -29,7 +34,14 @@ export default function LoginPage() {
       },
       onError: (err) => {
         const status = (err as { status?: number })?.status;
-        setError(status === 429 ? t("login.tooManyAttempts") : t("login.error"));
+        if (status === 429) {
+          setError(t("login.tooManyAttempts"));
+        } else {
+          // Surface the server's message (tenant pending/rejected/suspended,
+          // realm isolation) instead of a generic "login failed".
+          const serverMsg = (err as { data?: { error?: string } })?.data?.error;
+          setError(serverMsg && status !== 401 ? serverMsg : t("login.error"));
+        }
       },
     },
   });
@@ -57,10 +69,19 @@ export default function LoginPage() {
           <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-3 shadow-lg">
             <span className="text-white font-extrabold text-4xl leading-none">ت</span>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">{t("login.title")}</h1>
-          <p className="text-muted-foreground text-sm mt-1">{t("login.subtitle")}</p>
-          {t("login.address") ? <p className="text-muted-foreground text-xs mt-1">{t("login.address")}</p> : null}
-          <p className="text-muted-foreground text-sm mt-3">{t("login.signIn")}</p>
+          {APP_REALM === "admin" ? (
+            <>
+              <h1 className="text-2xl font-bold text-foreground">لوحة إدارة المنصة</h1>
+              <p className="text-muted-foreground text-sm mt-1">مخصصة لفريق إدارة المنصة فقط</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold text-foreground">{t("login.title")}</h1>
+              <p className="text-muted-foreground text-sm mt-1">{t("login.subtitle")}</p>
+              {t("login.address") ? <p className="text-muted-foreground text-xs mt-1">{t("login.address")}</p> : null}
+              <p className="text-muted-foreground text-sm mt-3">{t("login.signIn")}</p>
+            </>
+          )}
         </div>
 
         <div className="bg-card border border-border rounded-lg p-6">
@@ -101,12 +122,14 @@ export default function LoginPage() {
               {loginMutation.isPending ? t("login.signingIn") : t("login.button")}
             </Button>
 
-            <p className="text-center text-sm text-muted-foreground">
-              شركة جديدة؟{" "}
-              <Link href="/signup">
-                <a className="text-primary hover:underline">سجّل شركتك الآن</a>
-              </Link>
-            </p>
+            {APP_REALM !== "admin" && (
+              <p className="text-center text-sm text-muted-foreground">
+                شركة جديدة؟{" "}
+                <Link href="/signup">
+                  <a className="text-primary hover:underline">سجّل شركتك الآن</a>
+                </Link>
+              </p>
+            )}
           </form>
         </div>
       </div>

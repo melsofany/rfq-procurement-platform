@@ -44,6 +44,7 @@ import {
   Layout as LayoutIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sseUrl } from "@/lib/realm";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface Chat {
@@ -493,7 +494,7 @@ function ChatsTab({ onStatsChange }: { onStatsChange: (s: Stats) => void }) {
     let disposed = false;
     function connect() {
       if (disposed) return;
-      es = new EventSource("/api/whatsapp/events", { withCredentials: true });
+      es = new EventSource(sseUrl("/api/whatsapp/events"), { withCredentials: true });
       es.onmessage = async (e) => {
         if (!e.data || e.data.startsWith(":")) return;
         try {

@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, ShoppingCart, Ban } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { filterTabs } from "@/lib/permissions";
+import { sseUrl } from "@/lib/realm";
 import GoodsReceiptPage from "./receipts";
 
 const STATUSES = ["all", "draft", "sent", "cancelled"];
@@ -58,7 +59,7 @@ export default function PurchaseOrdersListPage() {
       }
     }
     void load();
-    const es = new EventSource("/api/whatsapp/events", { withCredentials: true });
+    const es = new EventSource(sseUrl("/api/whatsapp/events"), { withCredentials: true });
     es.onmessage = (ev) => {
       try {
         const payload = JSON.parse(ev.data);

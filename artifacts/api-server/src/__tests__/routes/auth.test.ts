@@ -66,6 +66,7 @@ vi.mock("@workspace/db", () => {
     employeesTable: employeesTbl,
     // Re-export the same table handles some route modules import.
     auditLogTable: { _: "audit" },
+    tenantsTable: { _: "tenants", status: "status", name: "name" },
   };
 });
 
@@ -305,5 +306,92 @@ describe("POST /api/auth/login — security", () => {
       .post("/api/auth/login")
       .send({ email: "other@example.com", password: "wrong" });
     expect(other.status).toBe(401);
+  });
+});
+
+describe("POST /api/auth/login — realm isolation", () => {
+  const superadminRow = {
+    id: 1,
+    name: "SA",
+    email: "sa@platform.local",
+    passwordHash: "hashed",
+    role: "superadmin",
+    phone: null,
+    isActive: true,
+    permissions: null,
+    tenantId: null,
+    createdAt: new Date("2026-01-01"),
+  };
+  const tenantAdminRow = {
+    id: 20,
+    name: "Tenant Admin",
+    email: "owner@tenant.com",
+    passwordHash: "hashed",
+    role: "admin",
+    phone: null,
+    isActive: true,
+    permissions: null,
+    tenantId: 5,
+    status: "active",
+    createdAt: new Date("2026-01-01"),
+  };
+
+  it("403 for platform staff (superadmin) on the customer portal", async () => {
+    employeeRow = superadminRow;
+    const res = await request(testApp)
+      .post("/api/auth/login")
+      .set("x-app-realm", "portal")
+      .send({ email: "sa@platform.local", password: "secret123" });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toContain("لوحة الإدارة");
+    expect(auditInserts[0]).toMatchObject({ action: "auth.login_failed", employeeId: 1 });
+  });
+
+  it("403 for support staff on the customer portal", async () => {
+    employeeRow = { ...superadminRow, id: 2, role: "support", email: "sup@platform.local" };
+    const res = await request(testApp)
+      .post("/api/auth/login")
+      .set("x-app-realm", "portal")
+      .send({ email: "sup@platform.local", password: "secret123" });
+    expect(res.status).toBe(403);
+  });
+
+  it("403 for a tenant user on the admin console", async () => {
+    employeeRow = tenantAdminRow;
+    const res = await request(testApp)
+      .post("/api/auth/login")
+      .set("x-app-realm", "admin")
+      .send({ email: "owner@tenant.com", password: "secret123" });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toContain("إدارة المنصة");
+    expect(auditInserts[0]).toMatchObject({ action: "auth.login_failed", employeeId: 20 });
+  });
+
+  it("200 for superadmin on the admin console", async () => {
+    employeeRow = superadminRow;
+    const res = await request(testApp)
+      .post("/api/auth/login")
+      .set("x-app-realm", "admin")
+      .send({ email: "sa@platform.local", password: "secret123" });
+    expect(res.status).toBe(200);
+    expect(res.body.employee.role).toBe("superadmin");
+  });
+
+  it("200 for a tenant user on the customer portal", async () => {
+    employeeRow = tenantAdminRow;
+    const res = await request(testApp)
+      .post("/api/auth/login")
+      .set("x-app-realm", "portal")
+      .send({ email: "owner@tenant.com", password: "secret123" });
+    expect(res.status).toBe(200);
+    expect(res.body.employee.tenantId).toBe(5);
+  });
+
+  it("no realm header (same-origin / curl) stays unrestricted", async () => {
+    employeeRow = superadminRow;
+    const res = await request(testApp)
+      .post("/api/auth/login")
+      .send({ email: "sa@platform.local", password: "secret123" });
+    expect(res.status).toBe(200);
   });
 });
