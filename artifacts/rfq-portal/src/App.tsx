@@ -25,6 +25,7 @@ import PurchaseOrderDetailPage from "@/modules/po/pages/detail";
 
 // ── Module: Users — المستخدمون والموردون ──────────────────────────────────
 import LoginPage from "@/modules/users/pages/login";
+import SignupPage from "@/pages/signup";
 import EmployeesPage from "@/modules/users/pages/employees";
 import PricingPage from "@/modules/users/pages/pricing";
 import SuppliersPage from "@/modules/users/pages/suppliers/index";
@@ -117,6 +118,9 @@ function Router() {
 
       {/* Supplier token-based pricing page — no auth required */}
       <Route path="/q/:token" component={PricingPage} />
+
+      {/* Public company self-signup — no auth required */}
+      <Route path="/signup" component={SignupPage} />
 
       <Route path="/">
         {!isLoading && employee ? (

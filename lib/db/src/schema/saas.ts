@@ -7,7 +7,7 @@ import { z } from "zod/v4";
 // tenants/plans/subscriptions from the /admin page; tenant admins manage only
 // their own company's employees and data.
 
-export const TENANT_STATUSES = ["active", "suspended", "pending"] as const;
+export const TENANT_STATUSES = ["active", "suspended", "pending", "rejected"] as const;
 export type TenantStatus = (typeof TENANT_STATUSES)[number];
 
 export const tenantsTable = pgTable("tenants", {

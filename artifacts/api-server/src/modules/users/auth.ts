@@ -114,7 +114,9 @@ router.post("/auth/login", loginIpLimiter, loginAccountLimiter, async (req, res)
         error:
           tenantRow.status === "suspended"
             ? "حساب شركتك موقوف مؤقتاً — تواصل مع إدارة المنصة لإعادة التفعيل"
-            : "حساب شركتك قيد التفعيل — تواصل مع إدارة المنصة",
+            : tenantRow.status === "rejected"
+              ? "تم رفض طلب تسجيل شركتك — تواصل مع إدارة المنصة للاستفسار"
+              : "حساب شركتك قيد المراجعة والتفعيل — ستتمكن من الدخول فور اعتماد إدارة المنصة",
       });
       return;
     }

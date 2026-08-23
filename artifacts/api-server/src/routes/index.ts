@@ -27,11 +27,15 @@ import backupModule from "../modules/backup/index";
 import supportModule from "../modules/support/index";
 import platformModule from "../modules/platform/index";
 import settingsModule from "../modules/settings/index";
+import signupModule from "../modules/signup/index";
 
 const router: IRouter = Router();
 
 // Infrastructure
 router.use(healthRouter);
+
+// Public self-service company signup (no auth — creates a PENDING tenant)
+router.use(signupModule);
 
 // Business modules
 router.use(usersModule); // auth · suppliers · categories · customers

@@ -11,7 +11,7 @@ export interface Tenant {
   slug: string;
   contactEmail: string | null;
   contactPhone: string | null;
-  status: "active" | "suspended" | "pending";
+  status: "active" | "suspended" | "pending" | "rejected";
   notes: string | null;
   createdAt: string;
 }
@@ -151,7 +151,7 @@ export interface CompanySettings {
     slug: string;
     contactEmail: string | null;
     contactPhone: string | null;
-    status: "active" | "suspended" | "pending";
+    status: "active" | "suspended" | "pending" | "rejected";
     notes: string | null;
   };
   subscription: {

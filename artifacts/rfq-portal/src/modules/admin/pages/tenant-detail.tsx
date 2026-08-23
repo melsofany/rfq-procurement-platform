@@ -13,7 +13,8 @@ import { ArrowRight, Plus, KeyRound, MessageSquare } from "lucide-react";
 const STATUS_LABEL: Record<string, string> = {
   active: "نشطة",
   suspended: "معلّقة",
-  pending: "قيد التفعيل",
+  pending: "قيد المراجعة",
+  rejected: "مرفوضة",
 };
 
 const SUB_STATUS_LABEL: Record<string, string> = {

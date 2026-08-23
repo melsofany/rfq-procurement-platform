@@ -13,7 +13,8 @@ import { Plus, Search, Building2 } from "lucide-react";
 const STATUS_LABEL: Record<string, string> = {
   active: "نشطة",
   suspended: "معلّقة",
-  pending: "قيد التفعيل",
+  pending: "قيد المراجعة",
+  rejected: "مرفوضة",
 };
 
 const SUB_STATUS: Record<string, string> = {
@@ -60,6 +61,7 @@ export default function AdminTenantsPage() {
   }
 
   const tenants = data ?? [];
+  const pendingCount = tenants.filter((t) => t.status === "pending").length;
   const filtered = tenants.filter((t) => {
     if (statusFilter && t.status !== statusFilter) return false;
     if (search) {
@@ -115,6 +117,22 @@ export default function AdminTenantsPage() {
     }
   };
 
+  const setStatus = async (id: number, status: string, name: string) => {
+    if (status === "rejected" && !window.confirm(`تأكيد رفض طلب تسجيل شركة «${name}»؟`)) return;
+    try {
+      await platformApi.updateTenant(id, { status: status as never });
+      toast.success(
+        status === "active"
+          ? `تم اعتماد وتفعيل شركة «${name}» — يمكنها الآن تسجيل الدخول`
+          : `تم تغيير حالة «${name}» إلى «${STATUS_LABEL[status] ?? status}»`,
+      );
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/tenants"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/stats"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-4">
@@ -127,6 +145,17 @@ export default function AdminTenantsPage() {
             <Plus size={16} className="ml-1" /> شركة جديدة
           </Button>
         </div>
+
+        {pendingCount > 0 && (
+          <div className="flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              لديك <span className="font-bold">{pendingCount}</span> طلب تسجيل شركة جديدة بانتظار المراجعة والاعتماد.
+            </p>
+            <Button size="sm" variant="outline" onClick={() => setStatusFilter("pending")}>
+              عرض الطلبات
+            </Button>
+          </div>
+        )}
 
         <div className="flex gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
@@ -145,8 +174,9 @@ export default function AdminTenantsPage() {
           >
             <option value="">كل الحالات</option>
             <option value="active">نشطة</option>
-            <option value="pending">قيد التفعيل</option>
+            <option value="pending">قيد المراجعة</option>
             <option value="suspended">معلّقة</option>
+            <option value="rejected">مرفوضة</option>
           </select>
         </div>
 
@@ -164,6 +194,7 @@ export default function AdminTenantsPage() {
                 <th className="text-right px-4 py-2 font-medium">الموظفون</th>
                 <th className="text-right px-4 py-2 font-medium">واتساب</th>
                 <th className="text-right px-4 py-2 font-medium">الحالة</th>
+                <th className="text-right px-4 py-2 font-medium">إجراءات</th>
                 <th className="text-right px-4 py-2 font-medium">تاريخ الإنشاء</th>
               </tr>
             </thead>
@@ -211,6 +242,25 @@ export default function AdminTenantsPage() {
                       {STATUS_LABEL[t.status] ?? t.status}
                     </span>
                   </td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex gap-1.5 flex-wrap">
+                      {t.status !== "active" && (
+                        <Button size="sm" variant="outline" onClick={() => setStatus(t.id, "active", t.name)}>
+                          اعتماد وتفعيل
+                        </Button>
+                      )}
+                      {t.status === "active" && (
+                        <Button size="sm" variant="outline" onClick={() => setStatus(t.id, "suspended", t.name)}>
+                          تعليق
+                        </Button>
+                      )}
+                      {t.status === "pending" && (
+                        <Button size="sm" variant="outline" className="text-red-600" onClick={() => setStatus(t.id, "rejected", t.name)}>
+                          رفض
+                        </Button>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-2.5 text-muted-foreground">
                     {new Date(t.createdAt).toLocaleDateString("ar-EG")}
                   </td>
@@ -218,7 +268,7 @@ export default function AdminTenantsPage() {
               ))}
               {!isLoading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
                     لا توجد شركات مطابقة.
                   </td>
                 </tr>

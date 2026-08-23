@@ -348,8 +348,8 @@ router.patch("/platform/tenants/:id", async (req, res): Promise<void> => {
   if (body.contactPhone !== undefined) updates.contactPhone = body.contactPhone;
   if (body.notes !== undefined) updates.notes = body.notes;
   if (body.status !== undefined) {
-    if (!["active", "suspended", "pending"].includes(String(body.status))) {
-      res.status(400).json({ error: "status must be active|suspended|pending" });
+    if (!["active", "suspended", "pending", "rejected"].includes(String(body.status))) {
+      res.status(400).json({ error: "status must be active|suspended|pending|rejected" });
       return;
     }
     updates.status = body.status;
@@ -363,7 +363,14 @@ router.patch("/platform/tenants/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Tenant not found" });
     return;
   }
-  audit(req, "platform.tenant.updated", tenant.id, `Tenant ${tenant.name} updated`);
+  const STATUS_ACTION: Record<string, string> = {
+    active: "platform.tenant.activated",
+    suspended: "platform.tenant.suspended",
+    rejected: "platform.tenant.rejected",
+    pending: "platform.tenant.pending",
+  };
+  const action = body.status !== undefined ? (STATUS_ACTION[String(body.status)] ?? "platform.tenant.updated") : "platform.tenant.updated";
+  audit(req, action, tenant.id, `Tenant ${tenant.name} updated${body.status ? ` (status → ${body.status})` : ""}`);
   res.json(serializeTenant(tenant));
 });
 

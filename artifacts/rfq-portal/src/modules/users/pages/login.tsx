@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLogin, getGetMeQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -100,6 +100,13 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
               {loginMutation.isPending ? t("login.signingIn") : t("login.button")}
             </Button>
+
+            <p className="text-center text-sm text-muted-foreground">
+              شركة جديدة؟{" "}
+              <Link href="/signup">
+                <a className="text-primary hover:underline">سجّل شركتك الآن</a>
+              </Link>
+            </p>
           </form>
         </div>
       </div>
