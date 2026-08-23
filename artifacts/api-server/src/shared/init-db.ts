@@ -983,6 +983,29 @@ export async function initDb(): Promise<void> {
     }
     logger.info({ count: coaSeed.length }, "initDb: chart of accounts seeded");
 
+    // ── Superadmin upsert (env-driven) ────────────────────────────────────
+    // SEED_SUPERADMIN_EMAIL / SEED_SUPERADMIN_PASS define the platform admin.
+    // Runs on EVERY startup (idempotent upsert): first deploy creates the
+    // account; later deploys reset the email/password to match the env vars.
+    const saEmail = (process.env.SEED_SUPERADMIN_EMAIL ?? "superadmin@rfq-platform.local").toLowerCase();
+    const saPass = process.env.SEED_SUPERADMIN_PASS;
+    if (saPass) {
+      const hash = await bcrypt.hash(saPass, 12);
+      await client.query(
+        `INSERT INTO employees (name, email, password_hash, role, is_active)
+         VALUES ('Platform Admin', $1, $2, 'superadmin', true)
+         ON CONFLICT (email) DO UPDATE
+           SET password_hash = EXCLUDED.password_hash,
+               role = 'superadmin',
+               is_active = true`,
+        [saEmail, hash],
+      );
+      logger.info({ email: saEmail }, "initDb: superadmin upserted from env");
+    } else {
+      logger.warn("initDb: SEED_SUPERADMIN_PASS not set — superadmin not seeded/updated");
+    }
+
+    // Demo accounts are seeded only on a completely empty database (first boot).
     const existingCount = await client.query("SELECT COUNT(*) FROM employees");
     const isEmpty = parseInt(existingCount.rows[0].count, 10) === 0;
     if (isEmpty) {

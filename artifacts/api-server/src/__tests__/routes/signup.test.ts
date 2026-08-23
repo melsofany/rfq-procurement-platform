@@ -110,7 +110,7 @@ describe("POST /api/signup", () => {
       tenantId: 42,
       passwordHash: "hashed",
     });
-    expect(S.auditInserts.some((a) => a.table === S.auditLogTable && a.vals.action === "signup.submitted")).toBe(true);
+    expect(S.auditInserts.some((a: any) => a.table === S.auditLogTable && a.vals.action === "signup.submitted")).toBe(true);
   });
 
   it("suffixes the slug on collision", async () => {
