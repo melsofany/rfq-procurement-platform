@@ -126,7 +126,7 @@ app.use(tenantContext);
 
 app.use("/api", router);
 
-if (process.env.NODE_ENV === "production") {
+if (process.env.NODE_ENV === "production" && process.env.SERVE_PORTAL !== "false") {
   const frontendDist = path.resolve(process.cwd(), "artifacts/rfq-portal/dist/public");
   if (existsSync(frontendDist)) {
     app.use(express.static(frontendDist));
@@ -134,6 +134,12 @@ if (process.env.NODE_ENV === "production") {
       res.sendFile(path.join(frontendDist, "index.html"));
     });
   }
+} else if (process.env.NODE_ENV === "production") {
+  // API-only mode (SERVE_PORTAL=false): the SPA lives on its own static
+  // services, so this origin must never serve the UI.
+  app.get(/.*/, (_req, res) => {
+    res.status(404).json({ error: "API only" });
+  });
 }
 
 app.use((err: Error & { cause?: unknown }, _req: Request, res: Response, _next: NextFunction) => {
