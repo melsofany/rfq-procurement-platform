@@ -1005,56 +1005,8 @@ export async function initDb(): Promise<void> {
       logger.warn("initDb: SEED_SUPERADMIN_PASS not set — superadmin not seeded/updated");
     }
 
-    // Demo accounts are seeded only on a completely empty database (first boot).
-    const existingCount = await client.query("SELECT COUNT(*) FROM employees");
-    const isEmpty = parseInt(existingCount.rows[0].count, 10) === 0;
-    if (isEmpty) {
-      const seedAccounts = [
-        {
-          name: "Platform Admin",
-          email: (process.env.SEED_SUPERADMIN_EMAIL ?? "superadmin@rfq-platform.local").toLowerCase(),
-          pass: process.env.SEED_SUPERADMIN_PASS,
-          role: "superadmin",
-        },
-        {
-          name: "Admin",
-          email: "admin@rfq-platform.local",
-          pass: process.env.SEED_ADMIN_PASS,
-          role: "admin",
-        },
-        {
-          name: "Khalid Al-Manager",
-          email: "khalid@rfq-platform.local",
-          pass: process.env.SEED_MANAGER_PASS,
-          role: "manager",
-        },
-        {
-          name: "Sara",
-          email: "sara@rfq-platform.local",
-          pass: process.env.SEED_STAFF_PASS,
-          role: "purchasing",
-        },
-      ];
-      for (const acc of seedAccounts) {
-        if (!acc.pass) {
-          logger.warn(
-            { email: acc.email },
-            "initDb: env var for seed password not set — skipping account",
-          );
-          continue;
-        }
-        const hash = await bcrypt.hash(acc.pass, 12);
-        await client.query(
-          `INSERT INTO employees (name, email, password_hash, role, is_active)
-           VALUES ($1, $2, $3, $4, true)
-           ON CONFLICT (email) DO NOTHING`,
-          [acc.name, acc.email, hash, acc.role],
-        );
-        logger.info({ email: acc.email }, "initDb: seeded initial account");
-      }
-    } else {
-      logger.info("initDb: employees table not empty — skipping user seed");
-    }
+    // No demo accounts: every other user is created through the admin UI or
+    // the public company-signup flow.
     // ── Seed supplier categories ──────────────────────────────────────────────
     const categories = ["الميكانيكا", "معدات البترول"];
     for (const cat of categories) {
